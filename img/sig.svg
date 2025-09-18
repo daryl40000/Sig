@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icône de pilotage avec graphique et indicateurs -->
+  
+  <!-- Fond du tableau de bord -->
+  <rect x="2" y="4" width="20" height="16" rx="2" fill="#f8f9fa" stroke="#4a5568" stroke-width="1.5"/>
+  
+  <!-- Graphique en courbe -->
+  <path d="M5 15 L8 12 L11 14 L14 10 L17 13 L19 9" stroke="#4CAF50" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Points sur la courbe -->
+  <circle cx="5" cy="15" r="1.5" fill="#4CAF50"/>
+  <circle cx="8" cy="12" r="1.5" fill="#4CAF50"/>
+  <circle cx="11" cy="14" r="1.5" fill="#4CAF50"/>
+  <circle cx="14" cy="10" r="1.5" fill="#4CAF50"/>
+  <circle cx="17" cy="13" r="1.5" fill="#4CAF50"/>
+  <circle cx="19" cy="9" r="1.5" fill="#4CAF50"/>
+  
+  <!-- Indicateurs de pilotage -->
+  <circle cx="6" cy="7" r="1" fill="#2196F3"/>
+  <circle cx="9" cy="7" r="1" fill="#FF9800"/>
+  <circle cx="12" cy="7" r="1" fill="#4CAF50"/>
+  
+  <!-- Titre symbolique -->
+  <rect x="15" y="6" width="4" height="1" fill="#666"/>
+  <rect x="15" y="8" width="3" height="0.5" fill="#999"/>
+</svg> 

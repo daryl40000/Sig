@@ -22,7 +22,7 @@ $this->name = 'sig';
 $this->description = 'Pilotage de trésorerie et Solde Intermédiaire de Gestion';
 $this->version = '1.0.0';
 $this->const_name = 'MAIN_MODULE_SIG';
-$this->picto = 'fa-gauge';
+$this->picto = 'fa-tachometer-alt'; // Icône tableau de bord / pilotage
 
 // Module directories automatically created on enable
 $this->dirs = array('/sig/temp');
@@ -56,48 +56,52 @@ $this->menu = array();
 
 // Top menu: Pilotage
 $this->menu[] = array(
-'fk_menu' => 0,
-'type' => 'top',
-'titre' => 'Pilotage',
-'url' => '/custom/sig/index.php',
-'langs' => 'sig@sig',
-'position' => 100,
-'enabled' => '1',
-'perms' => '$user->rights->sig->read',
-'target' => '',
-'user' => 2,
-'prefix' => 'sig',
-'picto' => 'fa-gauge'
+    'fk_menu' => 0,
+    'type' => 'top',
+    'titre' => 'Pilotage',
+    'mainmenu' => 'sig',
+    'url' => '/custom/sig/index.php',
+    'langs' => 'sig@sig',
+    'position' => 100,
+    'enabled' => '1',
+    'perms' => '$user->rights->sig->read',
+    'target' => '',
+    'user' => 2,
+    'picto' => 'fa-tachometer-alt'
 );
 
 // Left menu: Accueil CA
 $this->menu[] = array(
-'fk_menu' => 'fk_mainmenu=sig',
-'type' => 'left',
-'titre' => 'ChiffreAffairesActuel',
-'url' => '/custom/sig/index.php',
-'langs' => 'sig@sig',
-'position' => 101,
-'enabled' => '1',
-'perms' => '$user->rights->sig->read',
-'target' => '',
-'user' => 2,
-'picto' => 'fa-gauge'
+    'fk_menu' => 'fk_mainmenu=sig',
+    'type' => 'left',
+    'titre' => 'ChiffreAffairesActuel',
+    'mainmenu' => 'sig',
+    'leftmenu' => 'sig_ca',
+    'url' => '/custom/sig/index.php',
+    'langs' => 'sig@sig',
+    'position' => 101,
+    'enabled' => '1',
+    'perms' => '$user->rights->sig->read',
+    'target' => '',
+    'user' => 2,
+    'picto' => 'fa-chart-bar'
 );
 
 // Left menu: Trésorerie
 $this->menu[] = array(
-'fk_menu' => 'fk_mainmenu=sig',
-'type' => 'left',
-'titre' => 'Trésorerie',
-'url' => '/custom/sig/tresorerie.php',
-'langs' => 'sig@sig',
-'position' => 102,
-'enabled' => '1',
-'perms' => '$user->rights->sig->read',
-'target' => '',
-'user' => 2,
-'picto' => 'fa-coins'
+    'fk_menu' => 'fk_mainmenu=sig',
+    'type' => 'left',
+    'titre' => 'Trésorerie',
+    'mainmenu' => 'sig',
+    'leftmenu' => 'sig_tresorerie',
+    'url' => '/custom/sig/tresorerie.php',
+    'langs' => 'sig@sig',
+    'position' => 102,
+    'enabled' => '1',
+    'perms' => '$user->rights->sig->read',
+    'target' => '',
+    'user' => 2,
+    'picto' => 'fa-coins'
 );
 }
 
