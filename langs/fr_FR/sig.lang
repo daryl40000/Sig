@@ -1,0 +1,13 @@
+SigDashboard=Pilotage
+SigCurrentTurnover=Chiffre d'affaires actuel
+SigSetup=Configuration du module SIG
+SigSetupHelp=Page de configuration minimale. Aucun paramètre n'est requis pour cette première version.
+ChiffreAffairesActuel=Chiffre d'affaires actuel
+Pilotage=Pilotage
+NoDataFound=Aucune donnée trouvée
+ValidatedInvoicesList=Liste des factures validées
+SignedPropalsList=Liste des devis signés
+CARealized=CA Réalisé
+CAExpected=CA Prévu
+ExpectedTurnoverFromSignedPropals=Chiffre d'affaires prévu basé sur les devis signés
+Trésorerie=Trésorerie 
