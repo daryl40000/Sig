@@ -20,7 +20,8 @@ $this->numero = 104001; // Free id range for external modules
 $this->family = 'financial';
 $this->name = 'sig';
 $this->description = 'Pilotage de trésorerie et Solde Intermédiaire de Gestion';
-$this->version = '1.0.0';
+		// Module version
+		$this->version = '0.1';
 $this->const_name = 'MAIN_MODULE_SIG';
 $this->picto = 'fa-tachometer-alt'; // Icône tableau de bord / pilotage
 
@@ -102,6 +103,23 @@ $this->menu[] = array(
     'target' => '',
     'user' => 2,
     'picto' => 'fa-coins'
+);
+
+// Left menu: Configuration
+$this->menu[] = array(
+    'fk_menu' => 'fk_mainmenu=sig',
+    'type' => 'left',
+    'titre' => 'Configuration',
+    'mainmenu' => 'sig',
+    'leftmenu' => 'sig_config',
+    'url' => '/custom/sig/admin/setup.php',
+    'langs' => 'sig@sig',
+    'position' => 103,
+    'enabled' => '1',
+    'perms' => '$user->admin',
+    'target' => '',
+    'user' => 2,
+    'picto' => 'fa-cogs'
 );
 }
 

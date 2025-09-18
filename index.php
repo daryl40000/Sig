@@ -252,7 +252,7 @@ function sig_get_turnover_for_month(DoliDB $db, int $year, int $month): float
 	$last_day = date('t', mktime(0, 0, 0, $month, 1, $year)); // Nombre de jours dans le mois
 	$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
 
-	$sql = 'SELECT SUM(f.total_ht) as total_ht, COUNT(*) as nb_factures';
+	$sql = 'SELECT SUM(f.total_ht) as total_ht';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
 	$sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
 	$sql .= ' AND f.fk_statut IN (1,2)'; // Seulement les factures Validées (statut 1) et Payées (statut 2)
@@ -260,27 +260,14 @@ function sig_get_turnover_for_month(DoliDB $db, int $year, int $month): float
 	$sql .= " AND f.datef >= '".$db->escape($date_start)."'";
 	$sql .= " AND f.datef <= '".$db->escape($date_end)."'";
 
-	// Débogage temporaire - à retirer en production
-	if ($month == 1) { // Ne déboguer que janvier pour éviter trop de sortie
-		echo "<!-- DEBUG Mois ".$month."/".$year." : ".$date_start." à ".$date_end." -->\n";
-		echo "<!-- DEBUG SQL: ".$sql." -->\n";
-	}
-
 	$total = 0.0;
 	$resql = $db->query($sql);
 	if ($resql) {
 		$obj = $db->fetch_object($resql);
 		if ($obj) {
-			if ($month == 1) { // Débogage pour janvier seulement
-				echo "<!-- DEBUG Résultat mois ".$month." : ".$obj->total_ht." (nb factures: ".$obj->nb_factures.") -->\n";
-			}
 			if (!empty($obj->total_ht)) $total = (float) $obj->total_ht;
 		}
 		$db->free($resql);
-	} else {
-		if ($month == 1) {
-			echo "<!-- DEBUG ERREUR SQL mois ".$month." : ".$db->lasterror()." -->\n";
-		}
 	}
 	return (float) $total;
 }
@@ -299,7 +286,7 @@ function sig_get_expected_turnover_for_month(DoliDB $db, int $year, int $month):
 {
 	global $conf;
 
-	$sql = 'SELECT SUM(p.total_ht) as total_ht, COUNT(*) as nb_propals';
+	$sql = 'SELECT SUM(p.total_ht) as total_ht';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'propal as p';
 	$sql .= ' WHERE p.entity IN ('.getEntity('propal', 1).')';
 	$sql .= ' AND p.fk_statut = 2'; // Statut 2 = Devis signé/accepté
@@ -315,28 +302,14 @@ function sig_get_expected_turnover_for_month(DoliDB $db, int $year, int $month):
 	
 	$sql .= ' )';
 
-	// Débogage temporaire - à retirer en production
-	if ($month == 1) { // Ne déboguer que janvier pour éviter trop de sortie
-		echo "<!-- DEBUG Devis Mois ".$month."/".$year." -->\n";
-		echo "<!-- DEBUG SQL Devis: ".$sql." -->\n";
-		echo "<!-- DEBUG Mois/Année courante: ".$current_month."/".$current_year." -->\n";
-	}
-
 	$total = 0.0;
 	$resql = $db->query($sql);
 	if ($resql) {
 		$obj = $db->fetch_object($resql);
 		if ($obj) {
-			if ($month == 1) { // Débogage pour janvier seulement
-				echo "<!-- DEBUG Résultat devis mois ".$month." : ".$obj->total_ht." (nb propals: ".$obj->nb_propals.") -->\n";
-			}
 			if (!empty($obj->total_ht)) $total = (float) $obj->total_ht;
 		}
 		$db->free($resql);
-	} else {
-		if ($month == 1) {
-			echo "<!-- DEBUG ERREUR SQL devis mois ".$month." : ".$db->lasterror()." -->\n";
-		}
 	}
 	return (float) $total;
 }
