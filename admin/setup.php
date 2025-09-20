@@ -26,9 +26,14 @@ if ($action == 'setvalue' && $user->admin) {
     $db->begin();
     
     $account_id = GETPOSTINT('SIG_BANK_ACCOUNT');
-    $result = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
+    $margin_rate = GETPOST('SIG_MARGIN_RATE', 'alphanohtml');
+    $payment_delay = GETPOSTINT('SIG_PAYMENT_DELAY');
     
-    if ($result > 0) {
+    $result1 = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
+    $result2 = dolibarr_set_const($db, 'SIG_MARGIN_RATE', $margin_rate, 'chaine', 0, '', $conf->entity);
+    $result3 = dolibarr_set_const($db, 'SIG_PAYMENT_DELAY', $payment_delay, 'chaine', 0, '', $conf->entity);
+    
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0) {
         $db->commit();
         setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     } else {
@@ -106,6 +111,32 @@ print '</td>';
 print '<td>'.$langs->trans("SigBankAccountHelp").'</td>';
 print '</tr>';
 
+// Configuration du taux de marge théorique
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigMarginRate").'</td>';
+print '<td>';
+
+$current_margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
+if (empty($current_margin_rate)) $current_margin_rate = '20'; // Valeur par défaut 20%
+
+print '<input type="number" name="SIG_MARGIN_RATE" value="'.$current_margin_rate.'" min="0" max="100" step="0.1" class="flat" style="width: 80px;"> %';
+print '</td>';
+print '<td>'.$langs->trans("SigMarginRateHelp").'</td>';
+print '</tr>';
+
+// Configuration du délai moyen de paiement
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigPaymentDelay").'</td>';
+print '<td>';
+
+$current_payment_delay = getDolGlobalString('SIG_PAYMENT_DELAY');
+if (empty($current_payment_delay)) $current_payment_delay = '30'; // Valeur par défaut 30 jours
+
+print '<input type="number" name="SIG_PAYMENT_DELAY" value="'.$current_payment_delay.'" min="0" max="365" step="1" class="flat" style="width: 80px;"> jours';
+print '</td>';
+print '<td>'.$langs->trans("SigPaymentDelayHelp").'</td>';
+print '</tr>';
+
 print '</table>';
 
 print '<br>';
@@ -149,6 +180,16 @@ if ($current_account > 0) {
 } else {
     print '<p><strong>'.$langs->trans("SelectedBankAccount").' :</strong> '.$langs->trans("AllBankAccounts").'</p>';
 }
+
+// Afficher le taux de marge configuré
+$current_margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
+if (empty($current_margin_rate)) $current_margin_rate = '20';
+print '<p><strong>'.$langs->trans("SigMarginRate").' :</strong> '.$current_margin_rate.'%</p>';
+
+// Afficher le délai de paiement configuré
+$current_payment_delay = getDolGlobalString('SIG_PAYMENT_DELAY');
+if (empty($current_payment_delay)) $current_payment_delay = '30';
+print '<p><strong>'.$langs->trans("SigPaymentDelay").' :</strong> '.$current_payment_delay.' jours</p>';
 
 print '</div>';
 

@@ -201,6 +201,7 @@ function sig_get_total_turnover_for_year(DoliDB $db, int $year): float
 /**
  * Retourne le CA HT prévu de l'année à partir des devis signés.
  * Les devis signés correspondent au statut 2 dans Dolibarr.
+ * Utilise la même logique que le tableau : date de livraison si renseignée, sinon mois courant.
  *
  * @param DoliDB $db
  * @param int $year
@@ -210,23 +211,14 @@ function sig_get_total_expected_turnover_for_year(DoliDB $db, int $year): float
 {
 	global $conf;
 
-	// Calcul des timestamps (début et fin d'année)
-	$firstday_timestamp = dol_mktime(0, 0, 0, 1, 1, $year);
-	$lastday_timestamp = dol_mktime(23, 59, 59, 12, 31, $year);
-
-	$sql = 'SELECT SUM(p.total_ht) as total_ht';
-	$sql .= ' FROM '.MAIN_DB_PREFIX.'propal as p';
-	$sql .= ' WHERE p.entity IN ('.getEntity('propal', 1).')';
-	$sql .= ' AND p.fk_statut = 2'; // Statut 2 = Devis signé/accepté
-	$sql .= " AND p.datep BETWEEN '".$db->idate($firstday_timestamp)."' AND '".$db->idate($lastday_timestamp)."'";
-
+	// Calculer le total en utilisant la même logique que le tableau
 	$total = 0.0;
-	$resql = $db->query($sql);
-	if ($resql) {
-		$obj = $db->fetch_object($resql);
-		if ($obj && !empty($obj->total_ht)) $total = (float) $obj->total_ht;
-		$db->free($resql);
+	
+	// Somme tous les mois de l'année
+	for ($m = 1; $m <= 12; $m++) {
+		$total += sig_get_expected_turnover_for_month($db, $year, $m);
 	}
+	
 	return (float) $total;
 }
 

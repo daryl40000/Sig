@@ -126,24 +126,70 @@ if ($selected_bank_account > 0) {
     $total_decaissements = 0;
     
     // Nouvelle approche : calculer le solde à la fin de chaque mois directement
-    $solde_precedent = 0;
+    $solde_fin_precedent = 0;
     
     for ($month = 1; $month <= 12; $month++) {
-        // Calculer le solde cumulé jusqu'à la fin de ce mois
-        $solde_fin_mois = sig_get_bank_balance_at_date($db, $selected_bank_account, $year, $month, 31);
-        
-        // Le solde de début est le solde de fin du mois précédent
+        // Le solde de début est le solde de fin théorique du mois précédent
         if ($month == 1) {
-            // Pour janvier, prendre le solde à la fin de décembre de l'année précédente
-            $solde_debut_mois = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
+            // Pour janvier, calculer le solde fin théorique de décembre de l'année précédente
+            $solde_bancaire_decembre = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
+            $marge_decembre = sig_get_expected_margin_with_delay_for_month($db, $year - 1, 12);
+            $solde_debut_mois = $solde_bancaire_decembre + $marge_decembre;
         } else {
-            $solde_debut_mois = $solde_precedent;
+            $solde_debut_mois = $solde_fin_precedent;
         }
         
         // Récupérer les mouvements détaillés du mois
         $mouvements_details = sig_get_bank_movements_details_for_month($db, $selected_bank_account, $year, $month);
         $encaissements_mois = $mouvements_details['encaissements'];
         $decaissements_mois = abs($mouvements_details['decaissements']); // Valeur absolue pour l'affichage
+        
+        // Calculer le solde fin théorique : Solde début + Encaissements - Décaissements + Marge avec délai
+        // La marge avec délai est ajoutée ici, pas dans les encaissements pour éviter le double comptage
+        $marge_avec_delai = sig_get_expected_margin_with_delay_for_month($db, $year, $month);
+        $solde_fin_mois = $solde_debut_mois + $encaissements_mois - $decaissements_mois + $marge_avec_delai;
+    
+    // Diagnostic pour le premier mois (pour debug)
+    if ($month == 1) {
+        $debug_info = sig_diagnostic_bank_movements($db, $selected_bank_account, $year, $month);
+        if (!empty($debug_info)) {
+            echo "<!-- DIAGNOSTIC BANCAIRE: ".$debug_info." -->\n";
+        }
+        
+        // Diagnostic des tables disponibles
+        $debug_tables = sig_diagnostic_bank_tables($db, $selected_bank_account);
+        if (!empty($debug_tables)) {
+            echo "<!-- DIAGNOSTIC TABLES: ".$debug_tables." -->\n";
+        }
+        
+        // Diagnostic détaillé des filtres
+        $debug_filters = sig_diagnostic_bank_filters($db, $selected_bank_account, $year, $month);
+        if (!empty($debug_filters)) {
+            echo "<!-- DIAGNOSTIC FILTERS: ".$debug_filters." -->\n";
+        }
+        
+        // Diagnostic des marges prévues
+        $debug_margins = sig_diagnostic_expected_margins($db, $year, $month);
+        if (!empty($debug_margins)) {
+            echo "<!-- DIAGNOSTIC MARGINS: ".$debug_margins." -->\n";
+        }
+        
+        // Diagnostic de la marge avec délai
+        $marge_avec_delai_debug = sig_get_expected_margin_with_delay_for_month($db, $year, $month);
+        echo "<!-- DIAGNOSTIC MARGIN DELAY: Marge avec délai mois ".$month."/".$year.": ".number_format($marge_avec_delai_debug, 2)." -->\n";
+        
+        // Diagnostic du solde de début
+        if ($month == 1) {
+            $solde_bancaire_decembre = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
+            $marge_decembre = sig_get_expected_margin_with_delay_for_month($db, $year - 1, 12);
+            echo "<!-- DIAGNOSTIC SOLDE DEBUT: Solde bancaire déc ".($year-1).": ".number_format($solde_bancaire_decembre, 2)." + Marge déc: ".number_format($marge_decembre, 2)." = Solde début janv: ".number_format($solde_bancaire_decembre + $marge_decembre, 2)." -->\n";
+        } else {
+            echo "<!-- DIAGNOSTIC SOLDE DEBUT: Solde début mois ".$month."/".$year.": ".number_format($solde_debut_mois, 2)." (solde fin théorique mois précédent) -->\n";
+        }
+        
+        // Diagnostic du solde fin théorique
+        echo "<!-- DIAGNOSTIC SOLDE FIN: Solde début: ".number_format($solde_debut_mois, 2)." + Encaissements bruts: ".number_format($encaissements_bruts, 2)." - Décaissements: ".number_format($decaissements_mois, 2)." + Marge délai: ".number_format($marge_avec_delai, 2)." = Solde fin: ".number_format($solde_fin_mois, 2)." -->\n";
+    }
         
         // Calculer la variation du mois
         $variation_mois = $solde_fin_mois - $solde_debut_mois;
@@ -162,9 +208,33 @@ if ($selected_bank_account > 0) {
         print '<tr class="oddeven" style="'.$row_style.'">';
         print '<td><strong>'.dol_print_date(dol_mktime(0, 0, 0, $month, 1, $year), '%B %Y').'</strong></td>';
         print '<td style="text-align: right;">'.price($solde_debut_mois).'</td>';
-        print '<td style="text-align: right; color: #2E7D32;">'.($encaissements_mois > 0 ? '+'.price($encaissements_mois) : price($encaissements_mois)).'</td>';
+        // Calculer la marge prévue pour l'affichage
+        $marge_prevue_affichage = 0;
+        if ($year >= $current_year && $month >= $current_month) {
+            $marge_prevue_affichage = sig_get_expected_margin_for_month($db, $year, $month);
+        }
+        
+        // Afficher les encaissements avec indication de la marge prévue (information uniquement)
+        $encaissements_bruts = $mouvements_details['encaissements'];
+        if ($marge_prevue_affichage > 0) {
+            print '<td style="text-align: right; color: #2E7D32;">'.($encaissements_bruts > 0 ? '+'.price($encaissements_bruts) : price($encaissements_bruts));
+            print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($marge_prevue_affichage).'</small>';
+            print '<br><strong>Total: +'.price($encaissements_bruts + $marge_prevue_affichage).'</strong></td>';
+        } else {
+            print '<td style="text-align: right; color: #2E7D32;">'.($encaissements_bruts > 0 ? '+'.price($encaissements_bruts) : price($encaissements_bruts)).'</td>';
+        }
+        
         print '<td style="text-align: right; color: #C62828;">'.($decaissements_mois > 0 ? '-'.price($decaissements_mois) : price($decaissements_mois)).'</td>';
+        
+        // Afficher le solde fin avec indication de la marge avec délai
+        if ($marge_avec_delai > 0) {
+            $solde_sans_marge = $solde_fin_mois - $marge_avec_delai;
+            print '<td style="text-align: right; font-weight: bold;">'.price($solde_sans_marge);
+            print '<br><small style="color: #4CAF50;">+ Marge (délai): +'.price($marge_avec_delai).'</small>';
+            print '<br><strong>Total: '.price($solde_fin_mois).'</strong></td>';
+        } else {
         print '<td style="text-align: right; font-weight: bold;">'.price($solde_fin_mois).'</td>';
+        }
         
         // Affichage de la variation avec couleur
         $variation_color = $variation_mois >= 0 ? '#2E7D32' : '#C62828';
@@ -173,8 +243,16 @@ if ($selected_bank_account > 0) {
         
         print '</tr>';
         
-        // Sauvegarder le solde pour le mois suivant
-        $solde_precedent = $solde_fin_mois;
+        // Sauvegarder le solde fin théorique pour le mois suivant
+        $solde_fin_precedent = $solde_fin_mois;
+    }
+
+    // Calculer le total de la marge prévue pour l'année
+    $total_marge_prevue = 0;
+    for ($m = $current_month; $m <= 12; $m++) {
+        if ($year >= $current_year) {
+            $total_marge_prevue += sig_get_expected_margin_for_month($db, $year, $m);
+        }
     }
 
     // Ligne de total
@@ -185,7 +263,15 @@ if ($selected_bank_account > 0) {
     print '<tr class="liste_total">';
     print '<td><strong>TOTAL ANNÉE '.$year.'</strong></td>';
     print '<td style="text-align: right; font-weight: bold;">'.price($solde_debut_annee).'</td>';
+    
+    if ($total_marge_prevue > 0) {
+        print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements);
+        print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($total_marge_prevue).'</small>';
+        print '<br><strong>Total: +'.price($total_encaissements + $total_marge_prevue).'</strong></td>';
+    } else {
     print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements).'</td>';
+    }
+    
     print '<td style="text-align: right; font-weight: bold; color: #C62828;">-'.price($total_decaissements).'</td>';
     print '<td style="text-align: right; font-weight: bold;">'.price($solde_fin_annee).'</td>';
     $variation_color = $variation_totale >= 0 ? '#2E7D32' : '#C62828';
@@ -323,6 +409,7 @@ function sig_get_total_turnover_for_year(DoliDB $db, int $year): float
 /**
  * Retourne le CA HT prévu de l'année à partir des devis signés.
  * Les devis signés correspondent au statut 2 dans Dolibarr.
+ * Utilise la même logique que le tableau : date de livraison si renseignée, sinon mois courant.
  *
  * @param DoliDB $db
  * @param int $year
@@ -332,21 +419,54 @@ function sig_get_total_expected_turnover_for_year(DoliDB $db, int $year): float
 {
 	global $conf;
 
-	// Calcul des timestamps (début et fin d'année)
-	$firstday_timestamp = dol_mktime(0, 0, 0, 1, 1, $year);
-	$lastday_timestamp = dol_mktime(23, 59, 59, 12, 31, $year);
+	// Calculer le total en utilisant la même logique que le tableau
+	$total = 0.0;
+	
+	// Somme tous les mois de l'année
+	for ($m = 1; $m <= 12; $m++) {
+		$total += sig_get_expected_turnover_for_month($db, $year, $m);
+	}
+	
+	return (float) $total;
+}
+
+/**
+ * Retourne le CA HT prévu du mois à partir des devis signés.
+ * Les devis signés correspondent au statut 2 dans Dolibarr.
+ * Utilise la date de livraison si renseignée, sinon le mois courant.
+ *
+ * @param DoliDB $db
+ * @param int $year
+ * @param int $month
+ * @return float
+ */
+function sig_get_expected_turnover_for_month(DoliDB $db, int $year, int $month): float
+{
+	global $conf;
 
 	$sql = 'SELECT SUM(p.total_ht) as total_ht';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'propal as p';
 	$sql .= ' WHERE p.entity IN ('.getEntity('propal', 1).')';
 	$sql .= ' AND p.fk_statut = 2'; // Statut 2 = Devis signé/accepté
-	$sql .= " AND p.datep BETWEEN '".$db->idate($firstday_timestamp)."' AND '".$db->idate($lastday_timestamp)."'";
+	$sql .= ' AND (';
+	
+	// Condition 1: Si date_livraison est renseignée, utiliser cette date
+	$sql .= ' (p.date_livraison IS NOT NULL AND YEAR(p.date_livraison) = '.(int)$year.' AND MONTH(p.date_livraison) = '.(int)$month.')';
+	
+	// Condition 2: Si date_livraison n'est pas renseignée, affecter au mois courant
+	$current_month = (int) date('n'); // Mois actuel (1-12)
+	$current_year = (int) date('Y');  // Année actuelle
+	$sql .= ' OR (p.date_livraison IS NULL AND '.$current_month.' = '.(int)$month.' AND '.$current_year.' = '.(int)$year.')';
+	
+	$sql .= ' )';
 
 	$total = 0.0;
 	$resql = $db->query($sql);
 	if ($resql) {
 		$obj = $db->fetch_object($resql);
-		if ($obj && !empty($obj->total_ht)) $total = (float) $obj->total_ht;
+		if ($obj) {
+			if (!empty($obj->total_ht)) $total = (float) $obj->total_ht;
+		}
 		$db->free($resql);
 	}
 	return (float) $total;
@@ -473,6 +593,7 @@ function sig_get_unpaid_invoices_list(DoliDB $db, int $year): array
 
 /**
  * Retourne le solde actuel d'un compte bancaire
+ * Inclut toutes les écritures, même celles non transférées en comptabilité
  */
 function sig_get_bank_balance(DoliDB $db, int $account_id): float
 {
@@ -486,6 +607,7 @@ function sig_get_bank_balance(DoliDB $db, int $account_id): float
 	} else {
 		$sql .= ' WHERE b.entity IN ('.getEntity('bank_account').')';
 	}
+	// Pas de filtre sur le statut pour inclure toutes les écritures
 
 	$balance = 0.0;
 	$resql = $db->query($sql);
@@ -501,6 +623,7 @@ function sig_get_bank_balance(DoliDB $db, int $account_id): float
 
 /**
  * Retourne le solde d'un compte bancaire à une date donnée (solde cumulé depuis le début)
+ * Inclut toutes les écritures, même celles non transférées en comptabilité
  */
 function sig_get_bank_balance_at_date(DoliDB $db, int $account_id, int $year, int $month, int $day): float
 {
@@ -513,8 +636,10 @@ function sig_get_bank_balance_at_date(DoliDB $db, int $account_id, int $year, in
 	$sql = 'SELECT SUM(b.amount) as balance';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
 	$sql .= ' WHERE b.fk_account = '.(int)$account_id;
-	$sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
+	// Suppression temporaire du filtre d'entité pour test
+	// $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
 	$sql .= " AND b.datev <= '".$db->escape($date_limit)."'";
+	// Pas de filtre sur le statut pour inclure toutes les écritures
 
 	$balance = 0.0;
 	$resql = $db->query($sql);
@@ -530,6 +655,7 @@ function sig_get_bank_balance_at_date(DoliDB $db, int $account_id, int $year, in
 
 /**
  * Retourne les mouvements bancaires d'un mois pour un compte donné
+ * Inclut toutes les écritures, même celles non transférées en comptabilité
  */
 function sig_get_bank_movements_for_month(DoliDB $db, int $account_id, int $year, int $month): float
 {
@@ -542,9 +668,11 @@ function sig_get_bank_movements_for_month(DoliDB $db, int $account_id, int $year
 	$sql = 'SELECT SUM(b.amount) as movements';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
 	$sql .= ' WHERE b.fk_account = '.(int)$account_id;
-	$sql .= ' AND b.entity IN ('.getEntity('bank_account', 1).')';
+	// Suppression temporaire du filtre d'entité pour test
+	// $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
 	$sql .= " AND DATE(b.datev) >= '".$db->escape($date_start)."'";
 	$sql .= " AND DATE(b.datev) <= '".$db->escape($date_end)."'";
+	// Pas de filtre sur le statut pour inclure toutes les écritures
 
 	$movements = 0.0;
 	$resql = $db->query($sql);
@@ -558,6 +686,7 @@ function sig_get_bank_movements_for_month(DoliDB $db, int $account_id, int $year
 
 /**
  * Retourne les derniers mouvements bancaires d'un compte
+ * Inclut toutes les écritures, même celles non transférées en comptabilité
  */
 function sig_get_recent_bank_movements(DoliDB $db, int $account_id, int $limit = 10): array
 {
@@ -566,9 +695,10 @@ function sig_get_recent_bank_movements(DoliDB $db, int $account_id, int $limit =
 	$sql = 'SELECT b.rowid, b.datev, b.amount, b.label, b.num_chq';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
 	$sql .= ' WHERE b.fk_account = '.(int)$account_id;
-	$sql .= ' AND b.entity IN ('.getEntity('bank_account', 1).')';
+	$sql .= ' AND b.entity IN ('.getEntity('bank_account').')'; // Suppression du paramètre 1
 	$sql .= ' ORDER BY b.datev DESC, b.rowid DESC';
 	$sql .= ' LIMIT '.(int)$limit;
+	// Pas de filtre sur le statut pour inclure toutes les écritures
 
 	$movements = array();
 	$resql = $db->query($sql);
@@ -625,7 +755,8 @@ function sig_get_bank_movements_details_for_month($db, $bank_account_id, $year, 
     $sql_encaissements .= " YEAR(b.datev) = ".(int)$year;
     $sql_encaissements .= " AND MONTH(b.datev) = ".(int)$month;
     $sql_encaissements .= " AND b.amount > 0";
-    $sql_encaissements .= " AND b.entity IN (".getEntity('bank_account').")";
+    // Suppression temporaire du filtre d'entité pour test
+    // $sql_encaissements .= " AND b.entity IN (".getEntity('bank_account').")";
     
     // Décaissements (montants négatifs)
     $sql_decaissements = "SELECT SUM(b.amount) as total_decaissements";
@@ -639,7 +770,474 @@ function sig_get_bank_movements_details_for_month($db, $bank_account_id, $year, 
     $sql_decaissements .= " YEAR(b.datev) = ".(int)$year;
     $sql_decaissements .= " AND MONTH(b.datev) = ".(int)$month;
     $sql_decaissements .= " AND b.amount < 0";
-    $sql_decaissements .= " AND b.entity IN (".getEntity('bank_account').")";
+    // Suppression temporaire du filtre d'entité pour test
+    // $sql_decaissements .= " AND b.entity IN (".getEntity('bank_account').")";
+    
+    $encaissements = 0;
+    $decaissements = 0;
+    
+    // Récupérer les encaissements
+    $resql = $db->query($sql_encaissements);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        $encaissements = $obj->total_encaissements ? floatval($obj->total_encaissements) : 0;
+        $db->free($resql);
+    }
+    
+    // Récupérer les décaissements
+    $resql = $db->query($sql_decaissements);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        $decaissements = $obj->total_decaissements ? floatval($obj->total_decaissements) : 0;
+        $db->free($resql);
+    }
+    
+    return array(
+        'encaissements' => $encaissements,
+        'decaissements' => $decaissements
+    );
+}
+
+/**
+ * Fonction de diagnostic pour analyser les mouvements bancaires
+ */
+function sig_diagnostic_bank_movements($db, $bank_account_id, $year, $month) {
+    $diagnostic = array();
+    
+    // 1. Compter toutes les écritures du compte
+    $sql = 'SELECT COUNT(*) as nb_total, MIN(datev) as date_min, MAX(datev) as date_max, SUM(amount) as total_amount';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
+    
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Total écritures compte: ".$obj->nb_total;
+            $diagnostic[] = "Période: ".$obj->date_min." à ".$obj->date_max;
+            $diagnostic[] = "Montant total: ".number_format($obj->total_amount, 2);
+        }
+        $db->free($resql);
+    }
+    
+    // 2. Compter les écritures du mois spécifique
+    $sql = 'SELECT COUNT(*) as nb_mois, SUM(amount) as total_mois';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
+    $sql .= ' AND YEAR(b.datev) = '.(int)$year;
+    $sql .= ' AND MONTH(b.datev) = '.(int)$month;
+    
+    // 2b. Diagnostic : voir tous les mois disponibles pour l'année
+    $sql_months = 'SELECT DISTINCT MONTH(b.datev) as mois, COUNT(*) as nb FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql_months .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $sql_months .= ' AND b.entity IN ('.getEntity('bank_account').')';
+    $sql_months .= ' AND YEAR(b.datev) = '.(int)$year;
+    $sql_months .= ' GROUP BY MONTH(b.datev) ORDER BY mois ASC';
+    $resql_months = $db->query($sql_months);
+    if ($resql_months) {
+        $months_data = array();
+        while ($obj_months = $db->fetch_object($resql_months)) {
+            $months_data[] = $obj_months->mois.": ".$obj_months->nb." écritures";
+        }
+        if (!empty($months_data)) {
+            $diagnostic[] = "Mois ".$year." disponibles: ".implode(", ", $months_data);
+        }
+        $db->free($resql_months);
+    }
+    
+    // 2b. Diagnostic : voir toutes les années disponibles
+    $sql_years = 'SELECT DISTINCT YEAR(b.datev) as annee, COUNT(*) as nb FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql_years .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $sql_years .= ' AND b.entity IN ('.getEntity('bank_account').')';
+    $sql_years .= ' GROUP BY YEAR(b.datev) ORDER BY annee DESC';
+    $resql_years = $db->query($sql_years);
+    if ($resql_years) {
+        $years_data = array();
+        while ($obj_years = $db->fetch_object($resql_years)) {
+            $years_data[] = $obj_years->annee.": ".$obj_years->nb." écritures";
+        }
+        if (!empty($years_data)) {
+            $diagnostic[] = "Années disponibles: ".implode(", ", $years_data);
+        }
+        $db->free($resql_years);
+    }
+    
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Écritures mois ".$month."/".$year.": ".$obj->nb_mois;
+            $diagnostic[] = "Montant mois: ".number_format($obj->total_mois, 2);
+        }
+        $db->free($resql);
+    }
+    
+    // 3. Vérifier les statuts des écritures
+    $sql = 'SELECT fk_statut, COUNT(*) as nb FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
+    $sql .= ' GROUP BY fk_statut ORDER BY fk_statut';
+    
+    $statuts = array();
+    $resql = $db->query($sql);
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $statuts[] = "Statut ".$obj->fk_statut.": ".$obj->nb;
+        }
+        $db->free($resql);
+    }
+    
+    if (!empty($statuts)) {
+        $diagnostic[] = "Répartition statuts: ".implode(", ", $statuts);
+    }
+    
+    return implode(" | ", $diagnostic);
+}
+
+/**
+ * Fonction de diagnostic pour identifier les bonnes tables bancaires
+ */
+function sig_diagnostic_bank_tables($db, $bank_account_id) {
+    $diagnostic = array();
+    
+    // 1. Vérifier la table bank
+    $sql = 'SELECT COUNT(*) as nb_bank FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Table bank: ".$obj->nb_bank." écritures";
+        }
+        $db->free($resql);
+    }
+    
+    // 2. Vérifier la table bank_account_lines (si elle existe)
+    $sql = 'SELECT COUNT(*) as nb_lines FROM '.MAIN_DB_PREFIX.'bank_account_lines as bal';
+    $sql .= ' WHERE bal.fk_account = '.(int)$bank_account_id;
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Table bank_account_lines: ".$obj->nb_lines." écritures";
+        }
+        $db->free($resql);
+    } else {
+        $diagnostic[] = "Table bank_account_lines: n'existe pas";
+    }
+    
+    // 3. Vérifier la table bank_class (si elle existe)
+    $sql = 'SELECT COUNT(*) as nb_class FROM '.MAIN_DB_PREFIX.'bank_class as bc';
+    $sql .= ' WHERE bc.fk_account = '.(int)$bank_account_id;
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Table bank_class: ".$obj->nb_class." écritures";
+        }
+        $db->free($resql);
+    } else {
+        $diagnostic[] = "Table bank_class: n'existe pas";
+    }
+    
+    // 4. Lister toutes les tables qui contiennent "bank"
+    $sql = "SHOW TABLES LIKE '".MAIN_DB_PREFIX."bank%'";
+    $resql = $db->query($sql);
+    if ($resql) {
+        $tables = array();
+        while ($obj = $db->fetch_object($resql)) {
+            $tables[] = $obj->{'Tables_in_'.$db->database_name.' ('.MAIN_DB_PREFIX.'bank%)'};
+        }
+        if (!empty($tables)) {
+            $diagnostic[] = "Tables bank disponibles: ".implode(", ", $tables);
+        }
+        $db->free($resql);
+    }
+    
+    return implode(" | ", $diagnostic);
+}
+
+/**
+ * Fonction de diagnostic pour analyser les filtres appliqués
+ */
+function sig_diagnostic_bank_filters($db, $bank_account_id, $year, $month) {
+    $diagnostic = array();
+    
+    // 1. Test sans filtre d'entité
+    $sql = 'SELECT COUNT(*) as nb_sans_entity, SUM(amount) as total_sans_entity';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Sans filtre entity: ".$obj->nb_sans_entity." écritures, total: ".number_format($obj->total_sans_entity, 2);
+        }
+        $db->free($resql);
+    }
+    
+    // 2. Test avec filtre d'entité
+    $sql = 'SELECT COUNT(*) as nb_avec_entity, SUM(amount) as total_avec_entity';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Avec filtre entity: ".$obj->nb_avec_entity." écritures, total: ".number_format($obj->total_avec_entity, 2);
+        }
+        $db->free($resql);
+    }
+    
+    // 3. Test pour le mois spécifique sans filtre d'entité
+    $sql = 'SELECT COUNT(*) as nb_mois_sans_entity, SUM(amount) as total_mois_sans_entity';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $sql .= ' AND YEAR(b.datev) = '.(int)$year;
+    $sql .= ' AND MONTH(b.datev) = '.(int)$month;
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Mois ".$month."/".$year." sans entity: ".$obj->nb_mois_sans_entity." écritures, total: ".number_format($obj->total_mois_sans_entity, 2);
+        }
+        $db->free($resql);
+    }
+    
+    // 4. Vérifier les valeurs d'entité
+    $sql = 'SELECT DISTINCT b.entity FROM '.MAIN_DB_PREFIX.'bank as b';
+    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
+    $sql .= ' LIMIT 5';
+    $resql = $db->query($sql);
+    if ($resql) {
+        $entities = array();
+        while ($obj = $db->fetch_object($resql)) {
+            $entities[] = $obj->entity;
+        }
+        if (!empty($entities)) {
+            $diagnostic[] = "Entités trouvées: ".implode(", ", $entities);
+        }
+        $db->free($resql);
+    }
+    
+    // 5. Vérifier getEntity('bank_account')
+    $entity_filter = getEntity('bank_account');
+    $diagnostic[] = "getEntity('bank_account') retourne: ".$entity_filter;
+    
+    return implode(" | ", $diagnostic);
+}
+
+/**
+ * Fonction de diagnostic pour analyser les marges prévues
+ */
+function sig_diagnostic_expected_margins($db, $year, $month) {
+    $diagnostic = array();
+    
+    $current_month = (int) date('n'); // Mois actuel (1-12)
+    $current_year = (int) date('Y');  // Année actuelle
+    
+    // 1. Vérifier si la table propaldet a les champs de marge
+    $sql = 'SHOW COLUMNS FROM '.MAIN_DB_PREFIX.'propaldet LIKE "marge_tx"';
+    $resql = $db->query($sql);
+    $has_marge_tx = false;
+    if ($resql) {
+        $has_marge_tx = $db->num_rows($resql) > 0;
+        $db->free($resql);
+    }
+    
+    $sql = 'SHOW COLUMNS FROM '.MAIN_DB_PREFIX.'propaldet LIKE "marque_tx"';
+    $resql = $db->query($sql);
+    $has_marque_tx = false;
+    if ($resql) {
+        $has_marque_tx = $db->num_rows($resql) > 0;
+        $db->free($resql);
+    }
+    
+    // Récupérer le taux de marge configuré
+    $margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
+    if (empty($margin_rate)) $margin_rate = 20;
+    $diagnostic[] = "Taux de marge configuré: ".$margin_rate."%";
+    
+    // Récupérer le CA prévu pour ce mois
+    $ca_prevue = sig_get_expected_turnover_for_month($db, $year, $month);
+    $marge_calculee = $ca_prevue * ((float)$margin_rate / 100);
+    $diagnostic[] = "CA prévu mois ".$month."/".$year.": ".number_format($ca_prevue, 2)." → Marge: ".number_format($marge_calculee, 2);
+    
+    // 2. Compter les devis signés pour ce mois
+    $sql = 'SELECT COUNT(DISTINCT p.rowid) as nb_propals, SUM(p.total_ht) as total_ca';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'propal as p';
+    $sql .= ' WHERE p.entity IN ('.getEntity('propal', 1).')';
+    $sql .= ' AND p.fk_statut = 2'; // Statut 2 = Devis signé/accepté
+    $sql .= ' AND (';
+    $sql .= ' (p.date_livraison IS NOT NULL AND YEAR(p.date_livraison) = '.(int)$year.' AND MONTH(p.date_livraison) = '.(int)$month.')';
+    $sql .= ' OR (p.date_livraison IS NULL AND '.$current_month.' = '.(int)$month.' AND '.$current_year.' = '.(int)$year.')';
+    $sql .= ' )';
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj) {
+            $diagnostic[] = "Devis signés mois ".$month."/".$year.": ".$obj->nb_propals." (CA: ".number_format($obj->total_ca, 2).")";
+        }
+        $db->free($resql);
+    }
+    
+    return implode(" | ", $diagnostic);
+}
+
+/**
+ * Retourne la marge prévue des devis signés pour un mois donné
+ * Calcule la marge à partir du CA prévu et du taux de marge configuré
+ * Utilise la date de livraison si renseignée, sinon le mois courant
+ */
+function sig_get_expected_margin_for_month($db, $year, $month) {
+    global $conf;
+    
+    // Vérifier que les paramètres sont valides
+    if (empty($month) || !is_numeric($month) || $month < 1 || $month > 12) {
+        return 0.0;
+    }
+    
+    $month = (int) $month;
+    $year = (int) $year;
+    
+    $current_month = (int) date('n'); // Mois actuel (1-12)
+    $current_year = (int) date('Y');  // Année actuelle
+    
+    // Récupérer le taux de marge configuré
+    $margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
+    if (empty($margin_rate)) $margin_rate = 20; // Valeur par défaut 20%
+    $margin_rate = (float) $margin_rate / 100; // Convertir en décimal (20% = 0.20)
+    
+    // Récupérer le CA prévu pour ce mois
+    $ca_prevue = sig_get_expected_turnover_for_month($db, $year, $month);
+    
+    // Calculer la marge : CA prévu × taux de marge
+    $total_margin = $ca_prevue * $margin_rate;
+    
+    return (float) $total_margin;
+}
+
+/**
+ * Retourne la marge prévue avec délai de paiement pour un mois donné
+ * Calcule la marge des livraisons qui seront payées ce mois-ci (en tenant compte du délai)
+ */
+function sig_get_expected_margin_with_delay_for_month($db, $year, $month) {
+    global $conf;
+    
+    // Vérifier que les paramètres sont valides
+    if (empty($month) || !is_numeric($month) || $month < 1 || $month > 12) {
+        return 0.0;
+    }
+    
+    $month = (int) $month;
+    $year = (int) $year;
+    
+    $current_month = (int) date('n'); // Mois actuel (1-12)
+    $current_year = (int) date('Y');  // Année actuelle
+    
+    // Récupérer le taux de marge configuré
+    $margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
+    if (empty($margin_rate)) $margin_rate = 20; // Valeur par défaut 20%
+    $margin_rate = (float) $margin_rate / 100; // Convertir en décimal (20% = 0.20)
+    
+    // Récupérer le délai de paiement configuré
+    $payment_delay = getDolGlobalString('SIG_PAYMENT_DELAY');
+    if (empty($payment_delay)) $payment_delay = 30; // Valeur par défaut 30 jours
+    $payment_delay = (int) $payment_delay;
+    
+    $total_margin = 0.0;
+    
+    // Calculer la date de début du mois demandé
+    $month_start = mktime(0, 0, 0, $month, 1, $year);
+    
+    // Calculer la date de fin du mois demandé
+    $month_end = mktime(23, 59, 59, $month, date('t', $month_start), $year);
+    
+    // Parcourir tous les mois précédents pour trouver les livraisons qui seront payées ce mois-ci
+    for ($check_year = $year - 1; $check_year <= $year + 1; $check_year++) {
+        for ($check_month = 1; $check_month <= 12; $check_month++) {
+            // Calculer la date de livraison (début du mois)
+            $delivery_date = mktime(0, 0, 0, $check_month, 1, $check_year);
+            
+            // Calculer la date de paiement (livraison + délai)
+            $payment_date = $delivery_date + ($payment_delay * 24 * 3600);
+            
+            // Vérifier si ce paiement tombe dans le mois demandé
+            if ($payment_date >= $month_start && $payment_date <= $month_end) {
+                // Récupérer le CA prévu pour ce mois de livraison
+                $ca_prevue = sig_get_expected_turnover_for_month($db, $check_year, $check_month);
+                
+                // Ajouter la marge de ce mois de livraison
+                $total_margin += $ca_prevue * $margin_rate;
+            }
+        }
+    }
+    
+    return (float) $total_margin;
+}
+
+/**
+ * Version alternative utilisant la table bank_account_lines (probablement la bonne)
+ */
+function sig_get_bank_balance_alternative(DoliDB $db, int $account_id): float
+{
+	global $conf;
+
+	$sql = 'SELECT SUM(bal.amount) as balance';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'bank_account_lines as bal';
+	if ($account_id > 0) {
+		$sql .= ' WHERE bal.fk_account = '.(int)$account_id;
+		$sql .= ' AND bal.entity IN ('.getEntity('bank_account').')';
+	} else {
+		$sql .= ' WHERE bal.entity IN ('.getEntity('bank_account').')';
+	}
+
+	$balance = 0.0;
+	$resql = $db->query($sql);
+	if ($resql) {
+		$obj = $db->fetch_object($resql);
+		if ($obj) {
+			$balance = $obj->balance ? floatval($obj->balance) : 0;
+		}
+		$db->free($resql);
+	}
+	return $balance;
+}
+
+/**
+ * Version alternative pour les mouvements détaillés utilisant bank_account_lines
+ */
+function sig_get_bank_movements_details_for_month_alternative($db, $bank_account_id, $year, $month) {
+    // Encaissements (montants positifs)
+    $sql_encaissements = "SELECT SUM(bal.amount) as total_encaissements";
+    $sql_encaissements .= " FROM ".MAIN_DB_PREFIX."bank_account_lines as bal";
+    if ($bank_account_id > 0) {
+        $sql_encaissements .= " WHERE bal.fk_account = ".(int)$bank_account_id;
+        $sql_encaissements .= " AND";
+    } else {
+        $sql_encaissements .= " WHERE";
+    }
+    $sql_encaissements .= " YEAR(bal.datev) = ".(int)$year;
+    $sql_encaissements .= " AND MONTH(bal.datev) = ".(int)$month;
+    $sql_encaissements .= " AND bal.amount > 0";
+    $sql_encaissements .= " AND bal.entity IN (".getEntity('bank_account').")";
+    
+    // Décaissements (montants négatifs)
+    $sql_decaissements = "SELECT SUM(bal.amount) as total_decaissements";
+    $sql_decaissements .= " FROM ".MAIN_DB_PREFIX."bank_account_lines as bal";
+    if ($bank_account_id > 0) {
+        $sql_decaissements .= " WHERE bal.fk_account = ".(int)$bank_account_id;
+        $sql_decaissements .= " AND";
+    } else {
+        $sql_decaissements .= " WHERE";
+    }
+    $sql_decaissements .= " YEAR(bal.datev) = ".(int)$year;
+    $sql_decaissements .= " AND MONTH(bal.datev) = ".(int)$month;
+    $sql_decaissements .= " AND bal.amount < 0";
+    $sql_decaissements .= " AND bal.entity IN (".getEntity('bank_account').")";
     
     $encaissements = 0;
     $decaissements = 0;
