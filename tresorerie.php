@@ -75,7 +75,6 @@ if ($selected_bank_account > 0) {
 // SECTION RÉSUMÉ : Indicateurs de trésorerie
 $total_year_ca = sig_get_total_turnover_for_year($db, $year);
 $total_year_ca_prevu = sig_get_total_expected_turnover_for_year($db, $year);
-$total_impaye = sig_get_total_unpaid_invoices($db, $year);
 
 print '<div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">';
 
@@ -88,14 +87,6 @@ print '<div style="font-size: 12px; color: #666; margin-top: 3px;">Factures pay�
 print '</div>';
 print '</div>';
 
-// CA à Encaisser
-print '<div class="info-box" style="background: #fff3e0; border: 1px solid #FF9800; border-radius: 5px; padding: 15px; flex: 1; min-width: 250px;">';
-print '<div style="text-align: center;">';
-print '<h3 style="margin: 0; color: #F57C00;">CA à Encaisser</h3>';
-print '<div style="font-size: 20px; font-weight: bold; color: #E65100; margin-top: 8px;">'.price($total_impaye).'</div>';
-print '<div style="font-size: 12px; color: #666; margin-top: 3px;">Factures impayées</div>';
-print '</div>';
-print '</div>';
 
 // CA Potentiel
 print '<div class="info-box" style="background: #e3f2fd; border: 1px solid #2196F3; border-radius: 5px; padding: 15px; flex: 1; min-width: 250px;">';
@@ -144,52 +135,16 @@ if ($selected_bank_account > 0) {
         $encaissements_mois = $mouvements_details['encaissements'];
         $decaissements_mois = abs($mouvements_details['decaissements']); // Valeur absolue pour l'affichage
         
-        // Calculer le solde fin théorique : Solde début + Encaissements - Décaissements + Marge avec délai
-        // La marge avec délai est ajoutée ici, pas dans les encaissements pour éviter le double comptage
+        // Calculer le solde fin théorique : Solde début + Encaissements - Décaissements + Marge avec délai + Factures client
+        // La marge avec délai et les factures client sont ajoutées ici, pas dans les encaissements pour éviter le double comptage
         $marge_avec_delai = sig_get_expected_margin_with_delay_for_month($db, $year, $month);
-        $solde_fin_mois = $solde_debut_mois + $encaissements_mois - $decaissements_mois + $marge_avec_delai;
+        $factures_client_mois = 0;
+        $include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
+        if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
+            $factures_client_mois = sig_get_customer_invoices_for_month($db, $year, $month);
+        }
+        $solde_fin_mois = $solde_debut_mois + $encaissements_mois - $decaissements_mois + $marge_avec_delai + $factures_client_mois;
     
-    // Diagnostic pour le premier mois (pour debug)
-    if ($month == 1) {
-        $debug_info = sig_diagnostic_bank_movements($db, $selected_bank_account, $year, $month);
-        if (!empty($debug_info)) {
-            echo "<!-- DIAGNOSTIC BANCAIRE: ".$debug_info." -->\n";
-        }
-        
-        // Diagnostic des tables disponibles
-        $debug_tables = sig_diagnostic_bank_tables($db, $selected_bank_account);
-        if (!empty($debug_tables)) {
-            echo "<!-- DIAGNOSTIC TABLES: ".$debug_tables." -->\n";
-        }
-        
-        // Diagnostic détaillé des filtres
-        $debug_filters = sig_diagnostic_bank_filters($db, $selected_bank_account, $year, $month);
-        if (!empty($debug_filters)) {
-            echo "<!-- DIAGNOSTIC FILTERS: ".$debug_filters." -->\n";
-        }
-        
-        // Diagnostic des marges prévues
-        $debug_margins = sig_diagnostic_expected_margins($db, $year, $month);
-        if (!empty($debug_margins)) {
-            echo "<!-- DIAGNOSTIC MARGINS: ".$debug_margins." -->\n";
-        }
-        
-        // Diagnostic de la marge avec délai
-        $marge_avec_delai_debug = sig_get_expected_margin_with_delay_for_month($db, $year, $month);
-        echo "<!-- DIAGNOSTIC MARGIN DELAY: Marge avec délai mois ".$month."/".$year.": ".number_format($marge_avec_delai_debug, 2)." -->\n";
-        
-        // Diagnostic du solde de début
-        if ($month == 1) {
-            $solde_bancaire_decembre = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
-            $marge_decembre = sig_get_expected_margin_with_delay_for_month($db, $year - 1, 12);
-            echo "<!-- DIAGNOSTIC SOLDE DEBUT: Solde bancaire déc ".($year-1).": ".number_format($solde_bancaire_decembre, 2)." + Marge déc: ".number_format($marge_decembre, 2)." = Solde début janv: ".number_format($solde_bancaire_decembre + $marge_decembre, 2)." -->\n";
-        } else {
-            echo "<!-- DIAGNOSTIC SOLDE DEBUT: Solde début mois ".$month."/".$year.": ".number_format($solde_debut_mois, 2)." (solde fin théorique mois précédent) -->\n";
-        }
-        
-        // Diagnostic du solde fin théorique
-        echo "<!-- DIAGNOSTIC SOLDE FIN: Solde début: ".number_format($solde_debut_mois, 2)." + Encaissements bruts: ".number_format($encaissements_bruts, 2)." - Décaissements: ".number_format($decaissements_mois, 2)." + Marge délai: ".number_format($marge_avec_delai, 2)." = Solde fin: ".number_format($solde_fin_mois, 2)." -->\n";
-    }
         
         // Calculer la variation du mois
         $variation_mois = $solde_fin_mois - $solde_debut_mois;
@@ -208,32 +163,77 @@ if ($selected_bank_account > 0) {
         print '<tr class="oddeven" style="'.$row_style.'">';
         print '<td><strong>'.dol_print_date(dol_mktime(0, 0, 0, $month, 1, $year), '%B %Y').'</strong></td>';
         print '<td style="text-align: right;">'.price($solde_debut_mois).'</td>';
-        // Calculer la marge prévue pour l'affichage
+        // Calculer la marge prévue pour l'affichage (seulement si l'option est activée)
         $marge_prevue_affichage = 0;
-        if ($year >= $current_year && $month >= $current_month) {
+        $include_signed_quotes = getDolGlobalString('SIG_INCLUDE_SIGNED_QUOTES');
+        if ($year >= $current_year && $month >= $current_month && !empty($include_signed_quotes) && $include_signed_quotes == '1') {
             $marge_prevue_affichage = sig_get_expected_margin_for_month($db, $year, $month);
         }
         
-        // Afficher les encaissements avec indication de la marge prévue (information uniquement)
+        // Calculer les factures client impayées pour l'affichage (seulement si l'option est activée)
+        $factures_client_affichage = 0;
+        $include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
+        if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
+            $factures_client_affichage = sig_get_customer_invoices_for_month($db, $year, $month);
+        }
+        
+        // Afficher les encaissements avec indication des montants à venir
         $encaissements_bruts = $mouvements_details['encaissements'];
-        if ($marge_prevue_affichage > 0) {
+        $total_encaissements_prevus = $encaissements_bruts + $marge_prevue_affichage + $factures_client_affichage;
+        
+        if ($marge_prevue_affichage > 0 || $factures_client_affichage > 0) {
             print '<td style="text-align: right; color: #2E7D32;">'.($encaissements_bruts > 0 ? '+'.price($encaissements_bruts) : price($encaissements_bruts));
-            print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($marge_prevue_affichage).'</small>';
-            print '<br><strong>Total: +'.price($encaissements_bruts + $marge_prevue_affichage).'</strong></td>';
+            
+            if ($marge_prevue_affichage > 0) {
+                print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($marge_prevue_affichage).'</small>';
+            }
+            
+            if ($factures_client_affichage > 0) {
+                print '<br><small style="color: #2196F3;">+ Factures client: +'.price($factures_client_affichage).'</small>';
+            }
+            
+            print '<br><strong>Total: +'.price($total_encaissements_prevus).'</strong></td>';
         } else {
             print '<td style="text-align: right; color: #2E7D32;">'.($encaissements_bruts > 0 ? '+'.price($encaissements_bruts) : price($encaissements_bruts)).'</td>';
         }
         
-        print '<td style="text-align: right; color: #C62828;">'.($decaissements_mois > 0 ? '-'.price($decaissements_mois) : price($decaissements_mois)).'</td>';
+        // Afficher les décaissements avec indication des factures fournisseur et charges
+        $factures_fournisseur = $mouvements_details['factures_fournisseur'];
+        $charges_fiscales_sociales = $mouvements_details['charges_fiscales_sociales'];
+        $decaissements_bancaires = $decaissements_mois - $factures_fournisseur - $charges_fiscales_sociales;
         
-        // Afficher le solde fin avec indication de la marge avec délai
-        if ($marge_avec_delai > 0) {
-            $solde_sans_marge = $solde_fin_mois - $marge_avec_delai;
-            print '<td style="text-align: right; font-weight: bold;">'.price($solde_sans_marge);
-            print '<br><small style="color: #4CAF50;">+ Marge (délai): +'.price($marge_avec_delai).'</small>';
+        if ($factures_fournisseur > 0 || $charges_fiscales_sociales > 0) {
+            print '<td style="text-align: right; color: #C62828;">'.($decaissements_bancaires > 0 ? '-'.price($decaissements_bancaires) : price($decaissements_bancaires));
+            
+            if ($factures_fournisseur > 0) {
+                print '<br><small style="color: #FF5722;">+ Factures fournisseur: -'.price($factures_fournisseur).'</small>';
+            }
+            
+            if ($charges_fiscales_sociales > 0) {
+                print '<br><small style="color: #E91E63;">+ Charges fiscales/sociales: -'.price($charges_fiscales_sociales).'</small>';
+            }
+            
+            print '<br><strong>Total: -'.price($decaissements_mois).'</strong></td>';
+        } else {
+            print '<td style="text-align: right; color: #C62828;">'.($decaissements_mois > 0 ? '-'.price($decaissements_mois) : price($decaissements_mois)).'</td>';
+        }
+        
+        // Afficher le solde fin avec indication des montants ajoutés
+        if ($marge_avec_delai > 0 || $factures_client_mois > 0) {
+            $solde_sans_ajouts = $solde_fin_mois - $marge_avec_delai - $factures_client_mois;
+            print '<td style="text-align: right; font-weight: bold;">'.price($solde_sans_ajouts);
+            
+            if ($marge_avec_delai > 0) {
+                print '<br><small style="color: #4CAF50;">+ Marge (délai): +'.price($marge_avec_delai).'</small>';
+            }
+            
+            if ($factures_client_mois > 0) {
+                print '<br><small style="color: #2196F3;">+ Factures client: +'.price($factures_client_mois).'</small>';
+            }
+            
             print '<br><strong>Total: '.price($solde_fin_mois).'</strong></td>';
         } else {
-        print '<td style="text-align: right; font-weight: bold;">'.price($solde_fin_mois).'</td>';
+            print '<td style="text-align: right; font-weight: bold;">'.price($solde_fin_mois).'</td>';
         }
         
         // Affichage de la variation avec couleur
@@ -247,36 +247,87 @@ if ($selected_bank_account > 0) {
         $solde_fin_precedent = $solde_fin_mois;
     }
 
-    // Calculer le total de la marge prévue pour l'année
-    $total_marge_prevue = 0;
-    for ($m = $current_month; $m <= 12; $m++) {
-        if ($year >= $current_year) {
-            $total_marge_prevue += sig_get_expected_margin_for_month($db, $year, $m);
+    // Calculer les vrais totaux des colonnes
+    // Solde de début = solde de début de janvier
+    $solde_debut_annee = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
+    $marge_decembre = sig_get_expected_margin_with_delay_for_month($db, $year - 1, 12);
+    $factures_client_decembre = 0;
+    $include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
+    if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
+        $factures_client_decembre = sig_get_customer_invoices_for_month($db, $year - 1, 12);
+    }
+    $total_solde_debut = $solde_debut_annee + $marge_decembre + $factures_client_decembre;
+    
+    // Totaux des mouvements de l'année
+    $total_encaissements_reel = 0;
+    $total_decaissements_reel = 0;
+    $total_marge_avec_delai = 0;
+    $total_factures_client_annee = 0;
+    
+    for ($m = 1; $m <= 12; $m++) {
+        $mouvements_mois = sig_get_bank_movements_details_for_month($db, $selected_bank_account, $year, $m);
+        $total_encaissements_reel += $mouvements_mois['encaissements'];
+        $total_decaissements_reel += abs($mouvements_mois['decaissements']);
+        $total_marge_avec_delai += sig_get_expected_margin_with_delay_for_month($db, $year, $m);
+        $include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
+        if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
+            $total_factures_client_annee += sig_get_customer_invoices_for_month($db, $year, $m);
         }
     }
-
-    // Ligne de total
-    $solde_debut_annee = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
-    $solde_fin_annee = $solde_precedent;
-    $variation_totale = $solde_fin_annee - $solde_debut_annee;
+    
+    // Solde fin = solde de fin de décembre (dernier mois calculé)
+    $total_solde_fin = $solde_fin_precedent;
+    
+    // Variation totale = solde fin - solde début
+    $total_variation = $total_solde_fin - $total_solde_debut;
+    
+    // Calculer le total de la marge prévue pour l'affichage
+    $total_marge_prevue = 0;
+    $include_signed_quotes = getDolGlobalString('SIG_INCLUDE_SIGNED_QUOTES');
+    if (!empty($include_signed_quotes) && $include_signed_quotes == '1') {
+        for ($m = $current_month; $m <= 12; $m++) {
+            if ($year >= $current_year) {
+                $total_marge_prevue += sig_get_expected_margin_for_month($db, $year, $m);
+            }
+        }
+    }
+    
+    // Calculer le total des factures client pour l'affichage
+    $total_factures_client = 0;
+    $include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
+    if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
+        for ($m = 1; $m <= 12; $m++) {
+            $total_factures_client += sig_get_customer_invoices_for_month($db, $year, $m);
+        }
+    }
     
     print '<tr class="liste_total">';
     print '<td><strong>TOTAL ANNÉE '.$year.'</strong></td>';
-    print '<td style="text-align: right; font-weight: bold;">'.price($solde_debut_annee).'</td>';
+    print '<td style="text-align: right; font-weight: bold;">'.price($total_solde_debut).'</td>';
     
-    if ($total_marge_prevue > 0) {
-        print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements);
-        print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($total_marge_prevue).'</small>';
-        print '<br><strong>Total: +'.price($total_encaissements + $total_marge_prevue).'</strong></td>';
+    $total_encaissements_prevus = $total_encaissements_reel + $total_marge_prevue + $total_factures_client;
+    
+    if ($total_marge_prevue > 0 || $total_factures_client > 0) {
+        print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements_reel);
+        
+        if ($total_marge_prevue > 0) {
+            print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($total_marge_prevue).'</small>';
+        }
+        
+        if ($total_factures_client > 0) {
+            print '<br><small style="color: #2196F3;">+ Factures client: +'.price($total_factures_client).'</small>';
+        }
+        
+        print '<br><strong>Total: +'.price($total_encaissements_prevus).'</strong></td>';
     } else {
-    print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements).'</td>';
+        print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements_reel).'</td>';
     }
     
-    print '<td style="text-align: right; font-weight: bold; color: #C62828;">-'.price($total_decaissements).'</td>';
-    print '<td style="text-align: right; font-weight: bold;">'.price($solde_fin_annee).'</td>';
-    $variation_color = $variation_totale >= 0 ? '#2E7D32' : '#C62828';
-    $variation_sign = $variation_totale > 0 ? '+' : '';
-    print '<td style="text-align: right; font-weight: bold; color: '.$variation_color.';">'.$variation_sign.price($variation_totale).'</td>';
+    print '<td style="text-align: right; font-weight: bold; color: #C62828;">-'.price($total_decaissements_reel).'</td>';
+    print '<td style="text-align: right; font-weight: bold;">'.price($total_solde_fin).'</td>';
+    $variation_color = $total_variation >= 0 ? '#2E7D32' : '#C62828';
+    $variation_sign = $total_variation > 0 ? '+' : '';
+    print '<td style="text-align: right; font-weight: bold; color: '.$variation_color.';">'.$variation_sign.price($total_variation).'</td>';
     print '</tr>';
 
     print '</table>';
@@ -320,56 +371,6 @@ if ($selected_bank_account > 0 && isset($account) && $account->rowid > 0) {
     print '</div>';
 }
 
-print '<br /><br />';
-
-// SECTION: Liste des factures impayées
-print load_fiche_titre('Factures Impayées', '', 'fa-exclamation-triangle');
-
-print '<div class="div-table-responsive">';
-print '<table class="noborder" width="100%">';
-print '<tr class="liste_titre">';
-print '<th class="center">' . $langs->trans('Ref') . '</th>';
-print '<th class="center">' . $langs->trans('Date') . '</th>';
-print '<th class="center">' . $langs->trans('ThirdParty') . '</th>';
-print '<th class="right">' . $langs->trans('TotalHT') . '</th>';
-print '<th class="center">Retard (jours)</th>';
-print '</tr>';
-
-$unpaid_invoices = sig_get_unpaid_invoices_list($db, $year);
-
-if (empty($unpaid_invoices)) {
-    print '<tr><td colspan="5" class="center">Aucune facture impayée</td></tr>';
-} else {
-    foreach ($unpaid_invoices as $invoice) {
-        // Calcul du retard
-        $date_echeance = $invoice->date_lim_reglement ? $invoice->date_lim_reglement : $invoice->datef;
-        $retard = (dol_now() - $date_echeance) / (24 * 3600); // en jours
-        
-        $row_style = '';
-        $retard_text = '';
-        if ($retard > 0) {
-            $retard_text = '+'.round($retard).' j';
-            if ($retard > 30) {
-                $row_style = 'background-color: #ffebee;'; // Rouge léger
-            } elseif ($retard > 7) {
-                $row_style = 'background-color: #fff3e0;'; // Orange léger
-            }
-        } else {
-            $retard_text = 'OK';
-        }
-        
-        print '<tr style="'.$row_style.'">';
-        print '<td class="center">' . $invoice->ref . '</td>';
-        print '<td class="center">' . dol_print_date($invoice->datef, 'day') . '</td>';
-        print '<td class="center">' . ($invoice->nom_client ?: 'N/A') . '</td>';
-        print '<td class="right">' . price($invoice->total_ht) . '</td>';
-        print '<td class="center">' . $retard_text . '</td>';
-        print '</tr>';
-    }
-}
-
-print '</table>';
-print '</div>';
 
 llxFooter();
 $db->close();
@@ -501,10 +502,12 @@ function sig_get_paid_invoices_for_month(DoliDB $db, int $year, int $month): flo
 	return (float) $total;
 }
 
+
 /**
- * Retourne le montant des factures impayées pour un mois donné
+ * Retourne le montant des factures fournisseur impayées pour un mois donné
+ * Basé sur la date de paiement prévue (date_lim_reglement)
  */
-function sig_get_unpaid_invoices_for_month(DoliDB $db, int $year, int $month): float
+function sig_get_supplier_invoices_for_month(DoliDB $db, int $year, int $month): float
 {
 	global $conf;
 
@@ -513,12 +516,11 @@ function sig_get_unpaid_invoices_for_month(DoliDB $db, int $year, int $month): f
 	$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
 
 	$sql = 'SELECT SUM(f.total_ht) as total_ht';
-	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
-	$sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture_fourn as f';
+	$sql .= ' WHERE f.entity IN ('.getEntity('supplier_invoice', 1).')';
 	$sql .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
-	$sql .= ' AND f.type IN (0, 1)';
-	$sql .= " AND f.datef >= '".$db->escape($date_start)."'";
-	$sql .= " AND f.datef <= '".$db->escape($date_end)."'";
+	$sql .= " AND f.date_lim_reglement >= '".$db->escape($date_start)."'";
+	$sql .= " AND f.date_lim_reglement <= '".$db->escape($date_end)."'";
 
 	$total = 0.0;
 	$resql = $db->query($sql);
@@ -531,65 +533,194 @@ function sig_get_unpaid_invoices_for_month(DoliDB $db, int $year, int $month): f
 }
 
 /**
- * Retourne le montant total des factures impayées pour une année
+ * Retourne le montant des charges fiscales et sociales impayées pour un mois donné
+ * Basé sur la date de paiement prévue (date_lim_reglement)
  */
-function sig_get_total_unpaid_invoices(DoliDB $db, int $year): float
+function sig_get_tax_social_charges_for_month(DoliDB $db, int $year, int $month): float
 {
 	global $conf;
 
-	$firstday_timestamp = dol_mktime(0, 0, 0, 1, 1, $year);
-	$lastday_timestamp = dol_mktime(23, 59, 59, 12, 31, $year);
-
-	$sql = 'SELECT SUM(f.total_ht) as total_ht';
-	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
-	$sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
-	$sql .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
-	$sql .= ' AND f.type IN (0, 1)';
-	$sql .= " AND f.datef BETWEEN '".$db->idate($firstday_timestamp)."' AND '".$db->idate($lastday_timestamp)."'";
+	$date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
+	$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+	$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
 
 	$total = 0.0;
-	$resql = $db->query($sql);
+
+	// 1. Charges sociales (URSSAF, retraite, etc.)
+	$sql_social = 'SELECT SUM(f.total_ht) as total_ht';
+	$sql_social .= ' FROM '.MAIN_DB_PREFIX.'facture_fourn as f';
+	$sql_social .= ' WHERE f.entity IN ('.getEntity('supplier_invoice', 1).')';
+	$sql_social .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
+	$sql_social .= " AND f.date_lim_reglement >= '".$db->escape($date_start)."'";
+	$sql_social .= " AND f.date_lim_reglement <= '".$db->escape($date_end)."'";
+	$sql_social .= " AND (f.ref LIKE '%URSSAF%' OR f.ref LIKE '%RETRAITE%' OR f.ref LIKE '%SECU%' OR f.ref LIKE '%CHOMAGE%' OR f.ref LIKE '%PREVOYANCE%' OR f.ref LIKE '%MUTUELLE%')";
+
+	$resql = $db->query($sql_social);
 	if ($resql) {
 		$obj = $db->fetch_object($resql);
-		if ($obj && !empty($obj->total_ht)) $total = (float) $obj->total_ht;
+		if ($obj && !empty($obj->total_ht)) $total += (float) $obj->total_ht;
 		$db->free($resql);
 	}
+
+	// 2. Charges fiscales (TVA, IS, etc.)
+	$sql_tax = 'SELECT SUM(f.total_ht) as total_ht';
+	$sql_tax .= ' FROM '.MAIN_DB_PREFIX.'facture_fourn as f';
+	$sql_tax .= ' WHERE f.entity IN ('.getEntity('supplier_invoice', 1).')';
+	$sql_tax .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
+	$sql_tax .= " AND f.date_lim_reglement >= '".$db->escape($date_start)."'";
+	$sql_tax .= " AND f.date_lim_reglement <= '".$db->escape($date_end)."'";
+	$sql_tax .= " AND (f.ref LIKE '%TVA%' OR f.ref LIKE '%IS%' OR f.ref LIKE '%IMPOT%' OR f.ref LIKE '%FISCAL%' OR f.ref LIKE '%DGFIP%')";
+
+	$resql = $db->query($sql_tax);
+	if ($resql) {
+		$obj = $db->fetch_object($resql);
+		if ($obj && !empty($obj->total_ht)) $total += (float) $obj->total_ht;
+		$db->free($resql);
+	}
+
 	return (float) $total;
 }
 
 /**
- * Retourne la liste des factures impayées
+ * Retourne le montant des charges sociales du module Sociales pour un mois donné
+ * Basé sur la date d'échéance des charges
  */
-function sig_get_unpaid_invoices_list(DoliDB $db, int $year): array
+function sig_get_sociales_charges_for_month(DoliDB $db, int $year, int $month): float
 {
 	global $conf;
 
-	$firstday_year_timestamp = dol_mktime(0, 0, 0, 1, 1, $year);
-	$lastday_year_timestamp = dol_mktime(23, 59, 59, 12, 31, $year);
+	$date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
+	$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+	$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
 
-	$sql = 'SELECT f.rowid, f.ref, f.datef, f.date_lim_reglement, f.total_ht, s.nom as nom_client';
-	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
-	$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe as s ON f.fk_soc = s.rowid';
-	$sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
-	$sql .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
-	$sql .= ' AND f.type IN (0, 1)';
-	$sql .= " AND f.datef BETWEEN '".$db->idate($firstday_year_timestamp)."' AND '".$db->idate($lastday_year_timestamp)."'";
-	$sql .= ' ORDER BY f.date_lim_reglement ASC, f.datef ASC';
+	$total = 0.0;
 
-	$invoices = array();
-	$resql = $db->query($sql);
-	if ($resql) {
-		$num = $db->num_rows($resql);
-		$i = 0;
-		while ($i < $num) {
-			$obj = $db->fetch_object($resql);
-			if ($obj) $invoices[] = $obj;
-			$i++;
+	// Essayer différentes tables possibles pour les charges sociales
+	$possible_tables = array(
+		'sociales_charges',
+		'sociales_contributions',
+		'sociales_charges_sociales',
+		'sociales_contributions_sociales',
+		'sociales_charges_urssaf',
+		'sociales_contributions_urssaf',
+		'salaries_charges',
+		'salaries_contributions',
+		'charges_sociales',
+		'contributions_sociales',
+		'urssaf_charges',
+		'urssaf_contributions',
+		'payroll_charges',
+		'payroll_contributions'
+	);
+
+	foreach ($possible_tables as $table) {
+		// Vérifier si la table existe
+		$sql_check = "SHOW TABLES LIKE '".MAIN_DB_PREFIX.$table."'";
+		$resql_check = $db->query($sql_check);
+		if ($resql_check && $db->num_rows($resql_check) > 0) {
+			$db->free($resql_check);
+			
+			// Essayer différentes colonnes de date possibles
+			$date_columns = array('date_ech', 'date_echeance', 'date_lim_reglement', 'date_paiement', 'date_creation', 'datev');
+			
+			foreach ($date_columns as $date_col) {
+				// Vérifier si la colonne existe
+				$sql_col_check = "SHOW COLUMNS FROM ".MAIN_DB_PREFIX.$table." LIKE '".$date_col."'";
+				$resql_col = $db->query($sql_col_check);
+				if ($resql_col && $db->num_rows($resql_col) > 0) {
+					$db->free($resql_col);
+					
+					// Essayer différentes colonnes de montant possibles
+					$amount_columns = array('amount', 'montant', 'total_ht', 'total', 'montant_ht');
+					
+					foreach ($amount_columns as $amount_col) {
+						$sql_amount_check = "SHOW COLUMNS FROM ".MAIN_DB_PREFIX.$table." LIKE '".$amount_col."'";
+						$resql_amount = $db->query($sql_amount_check);
+						if ($resql_amount && $db->num_rows($resql_amount) > 0) {
+							$db->free($resql_amount);
+							
+							// Essayer la requête avec filtre sur les charges non payées
+							$sql = 'SELECT SUM('.$amount_col.') as total_amount';
+							$sql .= ' FROM '.MAIN_DB_PREFIX.$table;
+							$sql .= ' WHERE 1=1';
+							$sql .= " AND ".$date_col." >= '".$db->escape($date_start)."'";
+							$sql .= " AND ".$date_col." <= '".$db->escape($date_end)."'";
+							
+							// Ajouter un filtre pour les charges non payées si la colonne existe
+							$sql_paye_check = "SHOW COLUMNS FROM ".MAIN_DB_PREFIX.$table." LIKE 'paye'";
+							$resql_paye = $db->query($sql_paye_check);
+							if ($resql_paye && $db->num_rows($resql_paye) > 0) {
+								$db->free($resql_paye);
+								$sql .= " AND paye = 0"; // Seulement les charges non payées
+							}
+							$db->free($resql_paye);
+							
+							$resql = $db->query($sql);
+							if ($resql) {
+								$obj = $db->fetch_object($resql);
+								if ($obj && !empty($obj->total_amount)) {
+									$total += (float) $obj->total_amount;
+								}
+								$db->free($resql);
+							}
+							break; // Si on trouve une colonne de montant qui fonctionne, on s'arrête
+						}
+						$db->free($resql_amount);
+					}
+					break; // Si on trouve une colonne de date qui fonctionne, on s'arrête
+				}
+				$db->free($resql_col);
+			}
 		}
-		$db->free($resql);
+		$db->free($resql_check);
 	}
-	return $invoices;
+
+	return (float) $total;
 }
+
+/**
+ * Retourne le montant des charges sociales depuis la table llx_chargesociales
+ * Basé sur la date d'échéance (date_ech) et le statut de paiement (paye)
+ */
+function sig_get_chargesociales_for_month(DoliDB $db, int $year, int $month): float
+{
+	global $conf;
+
+	$date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
+	$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+	$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+
+	$total = 0.0;
+
+	// Vérifier si la table existe
+	$sql_check = "SHOW TABLES LIKE '".MAIN_DB_PREFIX."chargesociales'";
+	$resql_check = $db->query($sql_check);
+	if ($resql_check && $db->num_rows($resql_check) > 0) {
+		$db->free($resql_check);
+		
+		// Récupérer les charges sociales non payées pour ce mois
+		$sql = 'SELECT SUM(amount) as total_amount';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'chargesociales';
+		$sql .= ' WHERE 1=1';
+		$sql .= " AND date_ech >= '".$db->escape($date_start)."'";
+		$sql .= " AND date_ech <= '".$db->escape($date_end)."'";
+		$sql .= " AND paye = 0"; // Seulement les charges non payées
+		
+		$resql = $db->query($sql);
+		if ($resql) {
+			$obj = $db->fetch_object($resql);
+			if ($obj && !empty($obj->total_amount)) {
+				$total = (float) $obj->total_amount;
+			}
+			$db->free($resql);
+		}
+	}
+
+	return (float) $total;
+}
+
+
+
 
 /**
  * Retourne le solde actuel d'un compte bancaire
@@ -792,300 +923,49 @@ function sig_get_bank_movements_details_for_month($db, $bank_account_id, $year, 
         $db->free($resql);
     }
     
+    // Ajouter les factures fournisseur impayées pour ce mois (si l'option est activée)
+    $factures_fournisseur = 0;
+    $include_supplier_invoices = getDolGlobalString('SIG_INCLUDE_SUPPLIER_INVOICES');
+    
+    if (!empty($include_supplier_invoices) && $include_supplier_invoices == '1') {
+        $factures_fournisseur = sig_get_supplier_invoices_for_month($db, $year, $month);
+        $decaissements += $factures_fournisseur;
+    }
+    
+    // Ajouter les charges fiscales et sociales impayées pour ce mois (si l'option est activée)
+    $charges_fiscales_sociales = 0;
+    $include_social_charges = getDolGlobalString('SIG_INCLUDE_SOCIAL_CHARGES');
+    
+    if (!empty($include_supplier_invoices) && $include_supplier_invoices == '1') {
+        // 1. Charges depuis les factures fournisseurs (méthode actuelle)
+        $charges_fiscales_sociales = sig_get_tax_social_charges_for_month($db, $year, $month);
+        $decaissements += $charges_fiscales_sociales;
+    }
+    
+    // 2. Charges sociales depuis le module Sociales (option séparée)
+    if (!empty($include_social_charges) && $include_social_charges == '1') {
+        // Charges depuis le module Sociales (nouvelle méthode)
+        $charges_sociales_module = sig_get_sociales_charges_for_month($db, $year, $month);
+        $charges_fiscales_sociales += $charges_sociales_module;
+        
+        // Charges depuis la table chargesociales (méthode spécifique)
+        $charges_chargesociales = sig_get_chargesociales_for_month($db, $year, $month);
+        $charges_fiscales_sociales += $charges_chargesociales;
+        
+        $decaissements += $charges_sociales_module + $charges_chargesociales;
+    }
+    
     return array(
         'encaissements' => $encaissements,
-        'decaissements' => $decaissements
+        'decaissements' => $decaissements,
+        'factures_fournisseur' => $factures_fournisseur,
+        'charges_fiscales_sociales' => $charges_fiscales_sociales
     );
 }
 
-/**
- * Fonction de diagnostic pour analyser les mouvements bancaires
- */
-function sig_diagnostic_bank_movements($db, $bank_account_id, $year, $month) {
-    $diagnostic = array();
-    
-    // 1. Compter toutes les écritures du compte
-    $sql = 'SELECT COUNT(*) as nb_total, MIN(datev) as date_min, MAX(datev) as date_max, SUM(amount) as total_amount';
-    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
-    
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Total écritures compte: ".$obj->nb_total;
-            $diagnostic[] = "Période: ".$obj->date_min." à ".$obj->date_max;
-            $diagnostic[] = "Montant total: ".number_format($obj->total_amount, 2);
-        }
-        $db->free($resql);
-    }
-    
-    // 2. Compter les écritures du mois spécifique
-    $sql = 'SELECT COUNT(*) as nb_mois, SUM(amount) as total_mois';
-    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
-    $sql .= ' AND YEAR(b.datev) = '.(int)$year;
-    $sql .= ' AND MONTH(b.datev) = '.(int)$month;
-    
-    // 2b. Diagnostic : voir tous les mois disponibles pour l'année
-    $sql_months = 'SELECT DISTINCT MONTH(b.datev) as mois, COUNT(*) as nb FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql_months .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $sql_months .= ' AND b.entity IN ('.getEntity('bank_account').')';
-    $sql_months .= ' AND YEAR(b.datev) = '.(int)$year;
-    $sql_months .= ' GROUP BY MONTH(b.datev) ORDER BY mois ASC';
-    $resql_months = $db->query($sql_months);
-    if ($resql_months) {
-        $months_data = array();
-        while ($obj_months = $db->fetch_object($resql_months)) {
-            $months_data[] = $obj_months->mois.": ".$obj_months->nb." écritures";
-        }
-        if (!empty($months_data)) {
-            $diagnostic[] = "Mois ".$year." disponibles: ".implode(", ", $months_data);
-        }
-        $db->free($resql_months);
-    }
-    
-    // 2b. Diagnostic : voir toutes les années disponibles
-    $sql_years = 'SELECT DISTINCT YEAR(b.datev) as annee, COUNT(*) as nb FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql_years .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $sql_years .= ' AND b.entity IN ('.getEntity('bank_account').')';
-    $sql_years .= ' GROUP BY YEAR(b.datev) ORDER BY annee DESC';
-    $resql_years = $db->query($sql_years);
-    if ($resql_years) {
-        $years_data = array();
-        while ($obj_years = $db->fetch_object($resql_years)) {
-            $years_data[] = $obj_years->annee.": ".$obj_years->nb." écritures";
-        }
-        if (!empty($years_data)) {
-            $diagnostic[] = "Années disponibles: ".implode(", ", $years_data);
-        }
-        $db->free($resql_years);
-    }
-    
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Écritures mois ".$month."/".$year.": ".$obj->nb_mois;
-            $diagnostic[] = "Montant mois: ".number_format($obj->total_mois, 2);
-        }
-        $db->free($resql);
-    }
-    
-    // 3. Vérifier les statuts des écritures
-    $sql = 'SELECT fk_statut, COUNT(*) as nb FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
-    $sql .= ' GROUP BY fk_statut ORDER BY fk_statut';
-    
-    $statuts = array();
-    $resql = $db->query($sql);
-    if ($resql) {
-        while ($obj = $db->fetch_object($resql)) {
-            $statuts[] = "Statut ".$obj->fk_statut.": ".$obj->nb;
-        }
-        $db->free($resql);
-    }
-    
-    if (!empty($statuts)) {
-        $diagnostic[] = "Répartition statuts: ".implode(", ", $statuts);
-    }
-    
-    return implode(" | ", $diagnostic);
-}
 
-/**
- * Fonction de diagnostic pour identifier les bonnes tables bancaires
- */
-function sig_diagnostic_bank_tables($db, $bank_account_id) {
-    $diagnostic = array();
-    
-    // 1. Vérifier la table bank
-    $sql = 'SELECT COUNT(*) as nb_bank FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Table bank: ".$obj->nb_bank." écritures";
-        }
-        $db->free($resql);
-    }
-    
-    // 2. Vérifier la table bank_account_lines (si elle existe)
-    $sql = 'SELECT COUNT(*) as nb_lines FROM '.MAIN_DB_PREFIX.'bank_account_lines as bal';
-    $sql .= ' WHERE bal.fk_account = '.(int)$bank_account_id;
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Table bank_account_lines: ".$obj->nb_lines." écritures";
-        }
-        $db->free($resql);
-    } else {
-        $diagnostic[] = "Table bank_account_lines: n'existe pas";
-    }
-    
-    // 3. Vérifier la table bank_class (si elle existe)
-    $sql = 'SELECT COUNT(*) as nb_class FROM '.MAIN_DB_PREFIX.'bank_class as bc';
-    $sql .= ' WHERE bc.fk_account = '.(int)$bank_account_id;
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Table bank_class: ".$obj->nb_class." écritures";
-        }
-        $db->free($resql);
-    } else {
-        $diagnostic[] = "Table bank_class: n'existe pas";
-    }
-    
-    // 4. Lister toutes les tables qui contiennent "bank"
-    $sql = "SHOW TABLES LIKE '".MAIN_DB_PREFIX."bank%'";
-    $resql = $db->query($sql);
-    if ($resql) {
-        $tables = array();
-        while ($obj = $db->fetch_object($resql)) {
-            $tables[] = $obj->{'Tables_in_'.$db->database_name.' ('.MAIN_DB_PREFIX.'bank%)'};
-        }
-        if (!empty($tables)) {
-            $diagnostic[] = "Tables bank disponibles: ".implode(", ", $tables);
-        }
-        $db->free($resql);
-    }
-    
-    return implode(" | ", $diagnostic);
-}
 
-/**
- * Fonction de diagnostic pour analyser les filtres appliqués
- */
-function sig_diagnostic_bank_filters($db, $bank_account_id, $year, $month) {
-    $diagnostic = array();
-    
-    // 1. Test sans filtre d'entité
-    $sql = 'SELECT COUNT(*) as nb_sans_entity, SUM(amount) as total_sans_entity';
-    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Sans filtre entity: ".$obj->nb_sans_entity." écritures, total: ".number_format($obj->total_sans_entity, 2);
-        }
-        $db->free($resql);
-    }
-    
-    // 2. Test avec filtre d'entité
-    $sql = 'SELECT COUNT(*) as nb_avec_entity, SUM(amount) as total_avec_entity';
-    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $sql .= ' AND b.entity IN ('.getEntity('bank_account').')';
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Avec filtre entity: ".$obj->nb_avec_entity." écritures, total: ".number_format($obj->total_avec_entity, 2);
-        }
-        $db->free($resql);
-    }
-    
-    // 3. Test pour le mois spécifique sans filtre d'entité
-    $sql = 'SELECT COUNT(*) as nb_mois_sans_entity, SUM(amount) as total_mois_sans_entity';
-    $sql .= ' FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $sql .= ' AND YEAR(b.datev) = '.(int)$year;
-    $sql .= ' AND MONTH(b.datev) = '.(int)$month;
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Mois ".$month."/".$year." sans entity: ".$obj->nb_mois_sans_entity." écritures, total: ".number_format($obj->total_mois_sans_entity, 2);
-        }
-        $db->free($resql);
-    }
-    
-    // 4. Vérifier les valeurs d'entité
-    $sql = 'SELECT DISTINCT b.entity FROM '.MAIN_DB_PREFIX.'bank as b';
-    $sql .= ' WHERE b.fk_account = '.(int)$bank_account_id;
-    $sql .= ' LIMIT 5';
-    $resql = $db->query($sql);
-    if ($resql) {
-        $entities = array();
-        while ($obj = $db->fetch_object($resql)) {
-            $entities[] = $obj->entity;
-        }
-        if (!empty($entities)) {
-            $diagnostic[] = "Entités trouvées: ".implode(", ", $entities);
-        }
-        $db->free($resql);
-    }
-    
-    // 5. Vérifier getEntity('bank_account')
-    $entity_filter = getEntity('bank_account');
-    $diagnostic[] = "getEntity('bank_account') retourne: ".$entity_filter;
-    
-    return implode(" | ", $diagnostic);
-}
 
-/**
- * Fonction de diagnostic pour analyser les marges prévues
- */
-function sig_diagnostic_expected_margins($db, $year, $month) {
-    $diagnostic = array();
-    
-    $current_month = (int) date('n'); // Mois actuel (1-12)
-    $current_year = (int) date('Y');  // Année actuelle
-    
-    // 1. Vérifier si la table propaldet a les champs de marge
-    $sql = 'SHOW COLUMNS FROM '.MAIN_DB_PREFIX.'propaldet LIKE "marge_tx"';
-    $resql = $db->query($sql);
-    $has_marge_tx = false;
-    if ($resql) {
-        $has_marge_tx = $db->num_rows($resql) > 0;
-        $db->free($resql);
-    }
-    
-    $sql = 'SHOW COLUMNS FROM '.MAIN_DB_PREFIX.'propaldet LIKE "marque_tx"';
-    $resql = $db->query($sql);
-    $has_marque_tx = false;
-    if ($resql) {
-        $has_marque_tx = $db->num_rows($resql) > 0;
-        $db->free($resql);
-    }
-    
-    // Récupérer le taux de marge configuré
-    $margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
-    if (empty($margin_rate)) $margin_rate = 20;
-    $diagnostic[] = "Taux de marge configuré: ".$margin_rate."%";
-    
-    // Récupérer le CA prévu pour ce mois
-    $ca_prevue = sig_get_expected_turnover_for_month($db, $year, $month);
-    $marge_calculee = $ca_prevue * ((float)$margin_rate / 100);
-    $diagnostic[] = "CA prévu mois ".$month."/".$year.": ".number_format($ca_prevue, 2)." → Marge: ".number_format($marge_calculee, 2);
-    
-    // 2. Compter les devis signés pour ce mois
-    $sql = 'SELECT COUNT(DISTINCT p.rowid) as nb_propals, SUM(p.total_ht) as total_ca';
-    $sql .= ' FROM '.MAIN_DB_PREFIX.'propal as p';
-    $sql .= ' WHERE p.entity IN ('.getEntity('propal', 1).')';
-    $sql .= ' AND p.fk_statut = 2'; // Statut 2 = Devis signé/accepté
-    $sql .= ' AND (';
-    $sql .= ' (p.date_livraison IS NOT NULL AND YEAR(p.date_livraison) = '.(int)$year.' AND MONTH(p.date_livraison) = '.(int)$month.')';
-    $sql .= ' OR (p.date_livraison IS NULL AND '.$current_month.' = '.(int)$month.' AND '.$current_year.' = '.(int)$year.')';
-    $sql .= ' )';
-    $resql = $db->query($sql);
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        if ($obj) {
-            $diagnostic[] = "Devis signés mois ".$month."/".$year.": ".$obj->nb_propals." (CA: ".number_format($obj->total_ca, 2).")";
-        }
-        $db->free($resql);
-    }
-    
-    return implode(" | ", $diagnostic);
-}
 
 /**
  * Retourne la marge prévue des devis signés pour un mois donné
@@ -1098,6 +978,12 @@ function sig_get_expected_margin_for_month($db, $year, $month) {
     // Vérifier que les paramètres sont valides
     if (empty($month) || !is_numeric($month) || $month < 1 || $month > 12) {
         return 0.0;
+    }
+    
+    // Vérifier si l'option d'inclusion des devis signés est activée
+    $include_signed_quotes = getDolGlobalString('SIG_INCLUDE_SIGNED_QUOTES');
+    if (empty($include_signed_quotes) || $include_signed_quotes != '1') {
+        return 0.0; // Retourner 0 si l'option est désactivée
     }
     
     $month = (int) $month;
@@ -1121,6 +1007,48 @@ function sig_get_expected_margin_for_month($db, $year, $month) {
 }
 
 /**
+ * Retourne le montant des factures client impayées pour un mois donné
+ * Basé sur la date de règlement prévue (date_lim_reglement)
+ */
+function sig_get_customer_invoices_for_month(DoliDB $db, int $year, int $month): float
+{
+    global $conf;
+    
+    // Vérifier que les paramètres sont valides
+    if (empty($month) || !is_numeric($month) || $month < 1 || $month > 12) {
+        return 0.0;
+    }
+    
+    $month = (int) $month;
+    $year = (int) $year;
+    
+    // Calculer les dates de début et fin du mois
+    $date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
+    $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+    $date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+    
+    // Requête pour récupérer les factures client impayées avec date de règlement dans le mois
+    $sql = 'SELECT SUM(f.total_ht) as total_ht';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
+    $sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
+    $sql .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
+    $sql .= ' AND f.date_lim_reglement >= "'.$db->escape($date_start).'"';
+    $sql .= ' AND f.date_lim_reglement <= "'.$db->escape($date_end).'"';
+    
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj && $obj->total_ht) {
+            $db->free($resql);
+            return (float) $obj->total_ht;
+        }
+        $db->free($resql);
+    }
+    
+    return 0.0;
+}
+
+/**
  * Retourne la marge prévue avec délai de paiement pour un mois donné
  * Calcule la marge des livraisons qui seront payées ce mois-ci (en tenant compte du délai)
  */
@@ -1130,6 +1058,12 @@ function sig_get_expected_margin_with_delay_for_month($db, $year, $month) {
     // Vérifier que les paramètres sont valides
     if (empty($month) || !is_numeric($month) || $month < 1 || $month > 12) {
         return 0.0;
+    }
+    
+    // Vérifier si l'option d'inclusion des devis signés est activée
+    $include_signed_quotes = getDolGlobalString('SIG_INCLUDE_SIGNED_QUOTES');
+    if (empty($include_signed_quotes) || $include_signed_quotes != '1') {
+        return 0.0; // Retourner 0 si l'option est désactivée
     }
     
     $month = (int) $month;

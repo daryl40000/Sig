@@ -29,11 +29,43 @@ if ($action == 'setvalue' && $user->admin) {
     $margin_rate = GETPOST('SIG_MARGIN_RATE', 'alphanohtml');
     $payment_delay = GETPOSTINT('SIG_PAYMENT_DELAY');
     
+    // Gestion de la case à cocher pour inclure les factures fournisseurs
+    if (GETPOST('SIG_INCLUDE_SUPPLIER_INVOICES', 'int')) {
+        $include_supplier_invoices = 1;
+    } else {
+        $include_supplier_invoices = 0;
+    }
+    
+    // Gestion de la case à cocher pour inclure les charges sociales
+    if (GETPOST('SIG_INCLUDE_SOCIAL_CHARGES', 'int')) {
+        $include_social_charges = 1;
+    } else {
+        $include_social_charges = 0;
+    }
+    
+    // Gestion de la case à cocher pour inclure les devis signés
+    if (GETPOST('SIG_INCLUDE_SIGNED_QUOTES', 'int')) {
+        $include_signed_quotes = 1;
+    } else {
+        $include_signed_quotes = 0;
+    }
+    
+    // Gestion de la case à cocher pour inclure les factures client impayées
+    if (GETPOST('SIG_INCLUDE_CUSTOMER_INVOICES', 'int')) {
+        $include_customer_invoices = 1;
+    } else {
+        $include_customer_invoices = 0;
+    }
+    
     $result1 = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
     $result2 = dolibarr_set_const($db, 'SIG_MARGIN_RATE', $margin_rate, 'chaine', 0, '', $conf->entity);
     $result3 = dolibarr_set_const($db, 'SIG_PAYMENT_DELAY', $payment_delay, 'chaine', 0, '', $conf->entity);
+    $result4 = dolibarr_set_const($db, 'SIG_INCLUDE_SUPPLIER_INVOICES', $include_supplier_invoices, 'yesno', 0, '', $conf->entity);
+    $result5 = dolibarr_set_const($db, 'SIG_INCLUDE_SOCIAL_CHARGES', $include_social_charges, 'yesno', 0, '', $conf->entity);
+    $result6 = dolibarr_set_const($db, 'SIG_INCLUDE_SIGNED_QUOTES', $include_signed_quotes, 'yesno', 0, '', $conf->entity);
+    $result7 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_INVOICES', $include_customer_invoices, 'yesno', 0, '', $conf->entity);
     
-    if ($result1 > 0 && $result2 > 0 && $result3 > 0) {
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0) {
         $db->commit();
         setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     } else {
@@ -139,6 +171,82 @@ print '</tr>';
 
 print '</table>';
 
+// Section Trésorerie
+print '<br>';
+print '<h3>'.$langs->trans("SigTreasurySection").'</h3>';
+print '<table class="noborder" width="100%">';
+print '<tr class="liste_titre">';
+print '<td>'.$langs->trans("Parameter").'</td>';
+print '<td>'.$langs->trans("Value").'</td>';
+print '<td>'.$langs->trans("Description").'</td>';
+print '</tr>';
+
+// Option pour inclure les factures fournisseurs (case à cocher native)
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigIncludeSupplierInvoices").'</td>';
+print '<td>';
+
+$current_include_supplier = getDolGlobalString('SIG_INCLUDE_SUPPLIER_INVOICES');
+$checked = '';
+if (!empty($current_include_supplier) && $current_include_supplier == '1') {
+    $checked = ' checked="checked"';
+}
+
+print '<input type="checkbox" name="SIG_INCLUDE_SUPPLIER_INVOICES" value="1"'.$checked.' class="flat">';
+print '</td>';
+print '<td>'.$langs->trans("SigIncludeSupplierInvoicesHelp").'</td>';
+print '</tr>';
+
+// Option pour inclure les charges sociales (case à cocher native)
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigIncludeSocialCharges").'</td>';
+print '<td>';
+
+$current_include_social_charges = getDolGlobalString('SIG_INCLUDE_SOCIAL_CHARGES');
+$checked_social = '';
+if (!empty($current_include_social_charges) && $current_include_social_charges == '1') {
+    $checked_social = ' checked="checked"';
+}
+
+print '<input type="checkbox" name="SIG_INCLUDE_SOCIAL_CHARGES" value="1"'.$checked_social.' class="flat">';
+print '</td>';
+print '<td>'.$langs->trans("SigIncludeSocialChargesHelp").'</td>';
+print '</tr>';
+
+// Option pour inclure les devis signés (case à cocher native)
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigIncludeSignedQuotes").'</td>';
+print '<td>';
+
+$current_include_signed_quotes = getDolGlobalString('SIG_INCLUDE_SIGNED_QUOTES');
+$checked_quotes = '';
+if (!empty($current_include_signed_quotes) && $current_include_signed_quotes == '1') {
+    $checked_quotes = ' checked="checked"';
+}
+
+print '<input type="checkbox" name="SIG_INCLUDE_SIGNED_QUOTES" value="1"'.$checked_quotes.' class="flat">';
+print '</td>';
+print '<td>'.$langs->trans("SigIncludeSignedQuotesHelp").'</td>';
+print '</tr>';
+
+// Option pour inclure les factures client impayées (case à cocher native)
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigIncludeCustomerInvoices").'</td>';
+print '<td>';
+
+$current_include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
+$checked_customer = '';
+if (!empty($current_include_customer_invoices) && $current_include_customer_invoices == '1') {
+    $checked_customer = ' checked="checked"';
+}
+
+print '<input type="checkbox" name="SIG_INCLUDE_CUSTOMER_INVOICES" value="1"'.$checked_customer.' class="flat">';
+print '</td>';
+print '<td>'.$langs->trans("SigIncludeCustomerInvoicesHelp").'</td>';
+print '</tr>';
+
+print '</table>';
+
 print '<br>';
 print '<div class="center">';
 print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
@@ -190,6 +298,26 @@ print '<p><strong>'.$langs->trans("SigMarginRate").' :</strong> '.$current_margi
 $current_payment_delay = getDolGlobalString('SIG_PAYMENT_DELAY');
 if (empty($current_payment_delay)) $current_payment_delay = '30';
 print '<p><strong>'.$langs->trans("SigPaymentDelay").' :</strong> '.$current_payment_delay.' jours</p>';
+
+// Afficher la configuration de l'inclusion des factures fournisseurs
+$current_include_supplier = getDolGlobalString('SIG_INCLUDE_SUPPLIER_INVOICES');
+$include_status = (!empty($current_include_supplier) && $current_include_supplier == '1') ? $langs->trans("Yes") : $langs->trans("No");
+print '<p><strong>'.$langs->trans("SigIncludeSupplierInvoices").' :</strong> '.$include_status.'</p>';
+
+// Afficher la configuration de l'inclusion des charges sociales
+$current_include_social_charges = getDolGlobalString('SIG_INCLUDE_SOCIAL_CHARGES');
+$include_social_status = (!empty($current_include_social_charges) && $current_include_social_charges == '1') ? $langs->trans("Yes") : $langs->trans("No");
+print '<p><strong>'.$langs->trans("SigIncludeSocialCharges").' :</strong> '.$include_social_status.'</p>';
+
+// Afficher la configuration de l'inclusion des devis signés
+$current_include_signed_quotes = getDolGlobalString('SIG_INCLUDE_SIGNED_QUOTES');
+$include_quotes_status = (!empty($current_include_signed_quotes) && $current_include_signed_quotes == '1') ? $langs->trans("Yes") : $langs->trans("No");
+print '<p><strong>'.$langs->trans("SigIncludeSignedQuotes").' :</strong> '.$include_quotes_status.'</p>';
+
+// Afficher la configuration de l'inclusion des factures client impayées
+$current_include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
+$include_customer_status = (!empty($current_include_customer_invoices) && $current_include_customer_invoices == '1') ? $langs->trans("Yes") : $langs->trans("No");
+print '<p><strong>'.$langs->trans("SigIncludeCustomerInvoices").' :</strong> '.$include_customer_status.'</p>';
 
 print '</div>';
 
