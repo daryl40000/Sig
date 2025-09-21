@@ -158,6 +158,13 @@ if ($selected_bank_account > 0) {
                 $factures_client_mois = sig_get_customer_invoices_for_month($db, $year, $month);
             }
             
+            $factures_template_mois = 0;
+            // Les factures modèle ne s'appliquent qu'aux mois actuels et futurs, pas aux mois passés
+            $include_template_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES');
+            if (!empty($include_template_invoices) && $include_template_invoices == '1' && !$is_past_month) {
+                $factures_template_mois = sig_get_customer_template_invoices_for_month($db, $year, $month);
+            }
+            
             $salaires_impayes_mois = 0;
             $include_unpaid_salaries = getDolGlobalString('SIG_INCLUDE_UNPAID_SALARIES');
             if (!empty($include_unpaid_salaries) && $include_unpaid_salaries == '1') {
@@ -165,7 +172,7 @@ if ($selected_bank_account > 0) {
             }
             
             // Calcul prévisionnel du solde fin selon la formule demandée
-            // Solde début + Encaissements effectués + Factures client impayées + Marge mois précédent - Ensemble décaissements
+            // Solde début + Encaissements effectués + Factures client impayées + Marge mois précédent - Ensemble décaissements - Salaires impayés
             
             // Marge du mois précédent (si applicable)
             $marge_mois_precedent = 0;
@@ -175,8 +182,8 @@ if ($selected_bank_account > 0) {
                 $marge_mois_precedent = sig_get_expected_margin_with_delay_for_month($db, $year - 1, 12);
             }
             
-            // Calcul selon votre formule
-            $solde_fin_mois = $solde_debut_mois + $encaissements_mois + $factures_client_mois + $marge_mois_precedent - $decaissements_mois;
+            // Calcul selon votre formule (CORRIGÉ : ajout des salaires impayés + factures modèle)
+            $solde_fin_mois = $solde_debut_mois + $encaissements_mois + $factures_client_mois + $factures_template_mois + $marge_mois_precedent - $decaissements_mois - $salaires_impayes_mois;
             
         }
     
@@ -217,6 +224,13 @@ if ($selected_bank_account > 0) {
             $factures_client_affichage = sig_get_customer_invoices_for_month($db, $year, $month);
         }
         
+        // Calculer les factures modèle client pour l'affichage (seulement si l'option est activée et mois non passé)
+        $factures_template_affichage = 0;
+        $include_template_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES');
+        if (!empty($include_template_invoices) && $include_template_invoices == '1' && !$is_past_month) {
+            $factures_template_affichage = sig_get_customer_template_invoices_for_month($db, $year, $month);
+        }
+        
         // Afficher les encaissements avec indication des montants à venir
         // Pour les mois écoulés : utiliser les encaissements réels
         // Pour les mois futurs : utiliser les encaissements prévisionnels
@@ -225,9 +239,9 @@ if ($selected_bank_account > 0) {
         } else {
             $encaissements_bruts = $mouvements_details['encaissements']; // Données prévisionnelles
         }
-        $total_encaissements_prevus = $encaissements_bruts + $marge_prevue_affichage + $factures_client_affichage;
+        $total_encaissements_prevus = $encaissements_bruts + $marge_prevue_affichage + $factures_client_affichage + $factures_template_affichage;
         
-        if ($marge_prevue_affichage > 0 || $factures_client_affichage > 0) {
+        if ($marge_prevue_affichage > 0 || $factures_client_affichage > 0 || $factures_template_affichage > 0) {
             print '<td style="text-align: right; color: #2E7D32;">'.($encaissements_bruts > 0 ? '+'.price($encaissements_bruts) : price($encaissements_bruts));
             
             if ($marge_prevue_affichage > 0) {
@@ -236,6 +250,10 @@ if ($selected_bank_account > 0) {
             
             if ($factures_client_affichage > 0) {
                 print '<br><small style="color: #2196F3;">+ Factures client: +'.price($factures_client_affichage).'</small>';
+            }
+            
+            if ($factures_template_affichage > 0) {
+                print '<br><small style="color: #FF9800;">+ Factures modèle: +'.price($factures_template_affichage).'</small>';
             }
             
             print '<br><strong>Total: +'.price($total_encaissements_prevus).'</strong></td>';
@@ -357,16 +375,31 @@ if ($selected_bank_account > 0) {
         }
     }
     
+    // Calculer le total des factures modèle client pour l'affichage (seulement à partir du mois actuel)
+    $total_factures_template = 0;
+    $include_template_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES');
+    if (!empty($include_template_invoices) && $include_template_invoices == '1') {
+        for ($m = 1; $m <= 12; $m++) {
+            // Déterminer si c'est un mois passé
+            $is_past_month_total = ($year < $current_year) || ($year == $current_year && $m < $current_month);
+            
+            // Ne prendre en compte que les mois actuels et futurs
+            if (!$is_past_month_total) {
+                $total_factures_template += sig_get_customer_template_invoices_for_month($db, $year, $m);
+            }
+        }
+    }
+    
     // Calculé dans la boucle principale pour éviter les requêtes multiples
     
     print '<tr class="liste_total">';
     print '<td><strong>TOTAL ANNÉE '.$year.'</strong></td>';
     print '<td style="text-align: right; font-weight: bold;">'.price($total_solde_debut).'</td>';
     
-    $total_encaissements_prevus = $total_encaissements_reel + $total_marge_prevue + $total_factures_client;
+    $total_encaissements_prevus = $total_encaissements_reel + $total_marge_prevue + $total_factures_client + $total_factures_template;
     $total_decaissements_prevus = $total_decaissements_reel + $total_salaires_impayes_annee;
     
-    if ($total_marge_prevue > 0 || $total_factures_client > 0) {
+    if ($total_marge_prevue > 0 || $total_factures_client > 0 || $total_factures_template > 0) {
         print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements_reel);
         
         if ($total_marge_prevue > 0) {
@@ -375,6 +408,10 @@ if ($selected_bank_account > 0) {
         
         if ($total_factures_client > 0) {
             print '<br><small style="color: #2196F3;">+ Factures client: +'.price($total_factures_client).'</small>';
+        }
+        
+        if ($total_factures_template > 0) {
+            print '<br><small style="color: #FF9800;">+ Factures modèle: +'.price($total_factures_template).'</small>';
         }
         
         print '<br><strong>Total: +'.price($total_encaissements_prevus).'</strong></td>';
@@ -1364,6 +1401,215 @@ function sig_get_bank_movements_details_for_month_alternative($db, $bank_account
         'encaissements' => $encaissements,
         'decaissements' => $decaissements
     );
+}
+
+/**
+ * Retourne le montant des factures modèle client (récurrentes) pour un mois donné
+ * Calcule la marge à partir du montant HT et du taux de marge configuré
+ * LOGIQUE : Marge comptée le mois de génération de la facture (pas le mois d'encaissement)
+ * Le délai de 30 jours affecte l'encaissement mais pas le calcul de la marge prévisionnelle
+ */
+function sig_get_customer_template_invoices_for_month(DoliDB $db, int $year, int $month): float
+{
+    global $conf;
+    
+    // Vérifier que les paramètres sont valides
+    if (empty($month) || !is_numeric($month) || $month < 1 || $month > 12) {
+        return 0.0;
+    }
+    
+    // Vérifier si l'option d'inclusion des factures modèle est activée
+    $include_template_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES');
+    if (empty($include_template_invoices) || $include_template_invoices != '1') {
+        return 0.0; // Retourner 0 si l'option est désactivée
+    }
+    
+    $month = (int) $month;
+    $year = (int) $year;
+    
+    // Récupérer le taux de marge configuré
+    $margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
+    if (empty($margin_rate)) $margin_rate = 20; // Valeur par défaut 20%
+    $margin_rate = (float) $margin_rate / 100; // Convertir en décimal (20% = 0.20)
+    
+    // Calculer les dates du mois demandé
+    $date_start = sprintf('%04d-%02d-01', $year, $month);
+    $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+    $date_end = sprintf('%04d-%02d-%02d', $year, $month, $last_day);
+    
+    // NOUVELLE LOGIQUE CORRIGÉE :
+    // On cherche les factures qui DOIVENT être générées ce mois-ci selon leur fréquence
+    // Le délai de 30 jours ne change pas le mois de génération, seulement l'encaissement
+    // Exemple : facture générée en janvier = marge comptée en janvier (même si encaissée en février)
+    
+    $total_margin = 0.0;
+    
+    // Requête pour récupérer les factures modèle actives avec leur fréquence
+    $sql = 'SELECT fr.total_ht, fr.frequency, fr.unit_frequency, fr.date_when';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'facture_rec as fr';
+    $sql .= ' WHERE fr.entity IN ('.getEntity('invoice', 1).')';
+    $sql .= ' AND fr.suspended = 0'; // Seulement les modèles actifs (non suspendus)
+    
+    $resql = $db->query($sql);
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $montant_ht = (float) $obj->total_ht;
+            $frequency = (int) $obj->frequency;
+            $unit_frequency = $obj->unit_frequency; // 'm' = mois, 'y' = année, etc.
+            
+            // Vérifier si cette facture doit être générée ce mois-ci selon sa fréquence
+            if (sig_should_generate_template_invoice_for_month($obj, $year, $month)) {
+                // Calculer la marge : Montant HT × taux de marge
+                $total_margin += $montant_ht * $margin_rate;
+            }
+        }
+        $db->free($resql);
+    }
+    
+    return (float) $total_margin;
+}
+
+/**
+ * Détermine si une facture modèle doit être générée pour un mois donné
+ * Prend en compte la fréquence de récurrence (mensuelle, trimestrielle, annuelle)
+ */
+function sig_should_generate_template_invoice_for_month($template, int $year, int $month): bool
+{
+    $frequency = (int) $template->frequency;
+    $unit_frequency = $template->unit_frequency;
+    $date_when = $template->date_when;
+    
+    // Si pas de fréquence définie, on considère que c'est mensuel par défaut
+    if (empty($frequency)) $frequency = 1;
+    if (empty($unit_frequency)) $unit_frequency = 'm';
+    
+    // Normaliser l'unité de fréquence
+    $unit_frequency = strtolower($unit_frequency);
+    
+    switch ($unit_frequency) {
+        case 'm': // Mensuel
+        case 'month':
+        case 'months':
+            if ($frequency == 1) {
+                // Facture mensuelle : tous les mois
+                return true;
+            } else {
+                // Facture tous les X mois : vérifier si ce mois correspond
+                // Si date_when est définie, utiliser comme référence
+                if ($date_when) {
+                    $reference_date = new DateTime($date_when);
+                    $target_date = new DateTime("$year-$month-01");
+                    $diff = $reference_date->diff($target_date);
+                    $months_diff = ($diff->y * 12) + $diff->m;
+                    return ($months_diff % $frequency) == 0;
+                } else {
+                    // Sans date de référence, utiliser le mois comme base
+                    return ($month % $frequency) == 1; // Janvier, puis tous les X mois
+                }
+            }
+            break;
+            
+        case 'y': // Annuel
+        case 'year':
+        case 'years':
+            if ($date_when) {
+                // Vérifier si on est dans le bon mois de l'année
+                $reference_date = new DateTime($date_when);
+                return ((int) $reference_date->format('n')) == $month;
+            } else {
+                // Par défaut, facture annuelle en janvier
+                return $month == 1;
+            }
+            break;
+            
+        case 'w': // Hebdomadaire (peu probable pour la trésorerie, mais on gère)
+        case 'week':
+        case 'weeks':
+            // Pour les factures hebdomadaires, on considère qu'elles génèrent tous les mois
+            return true;
+            break;
+            
+        case 'd': // Journalier (très peu probable)
+        case 'day':
+        case 'days':
+            // Pour les factures journalières, on considère qu'elles génèrent tous les mois
+            return true;
+            break;
+            
+        default:
+            // Par défaut, considérer comme mensuel
+            return true;
+    }
+}
+
+/**
+ * Retourne les détails des factures modèle client pour un mois donné
+ * Retourne un tableau avec les informations détaillées de chaque facture modèle
+ */
+function sig_get_customer_template_invoices_details_for_month(DoliDB $db, int $year, int $month): array
+{
+    global $conf;
+    
+    $details = array();
+    
+    // Vérifier que les paramètres sont valides
+    if (empty($month) || !is_numeric($month) || $month < 1 || $month > 12) {
+        return $details;
+    }
+    
+    // Vérifier si l'option d'inclusion des factures modèle est activée
+    $include_template_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES');
+    if (empty($include_template_invoices) || $include_template_invoices != '1') {
+        return $details;
+    }
+    
+    $month = (int) $month;
+    $year = (int) $year;
+    
+    // Récupérer le taux de marge configuré
+    $margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
+    if (empty($margin_rate)) $margin_rate = 20; // Valeur par défaut 20%
+    $margin_rate_decimal = (float) $margin_rate / 100;
+    
+    // Calculer les dates du mois demandé
+    $date_start = sprintf('%04d-%02d-01', $year, $month);
+    $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+    $date_end = sprintf('%04d-%02d-%02d', $year, $month, $last_day);
+    
+    // LOGIQUE CORRIGÉE : On traite les factures qui doivent être générées ce mois-ci
+    // Le délai de 30 jours est informatif mais ne change pas le mois de calcul de la marge
+    
+    // Requête pour récupérer les détails des factures modèle actives
+    $sql = 'SELECT fr.rowid, fr.titre, fr.total_ht, fr.date_when, fr.frequency, fr.unit_frequency, fr.suspended';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'facture_rec as fr';
+    $sql .= ' WHERE fr.entity IN ('.getEntity('invoice', 1).')';
+    $sql .= ' AND fr.suspended = 0'; // Seulement les modèles actifs
+    
+    $resql = $db->query($sql);
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            // Vérifier si cette facture doit être générée ce mois-ci selon sa fréquence
+            if (sig_should_generate_template_invoice_for_month($obj, $year, $month)) {
+                $montant_ht = (float) $obj->total_ht;
+                $marge_calculee = $montant_ht * $margin_rate_decimal;
+                
+                $details[] = array(
+                    'id' => $obj->rowid,
+                    'titre' => $obj->titre,
+                    'montant_ht' => $montant_ht,
+                    'marge_calculee' => $marge_calculee,
+                    'taux_marge' => $margin_rate,
+                    'date_when' => $obj->date_when,
+                    'frequency' => $obj->frequency,
+                    'unit_frequency' => $obj->unit_frequency,
+                    'suspended' => $obj->suspended
+                );
+            }
+        }
+        $db->free($resql);
+    }
+    
+    return $details;
 }
 
 /**

@@ -1,5 +1,72 @@
 # Changelog - Module SIG
 
+## Version 0.5 (2025-09-21)
+
+### 🚀 **Nouvelle fonctionnalité majeure : Factures modèle client**
+
+#### Fonctionnalité ajoutée
+- ✅ **Inclusion des factures modèle client** dans les encaissements prévisionnels de trésorerie
+- ✅ **Gestion intelligente de la fréquence** : Mensuelle, trimestrielle, semestrielle, annuelle
+- ✅ **Calcul automatique de la marge** basé sur le taux de marge configuré dans le module
+- ✅ **Configuration granulaire** via une nouvelle option dans la section Trésorerie
+
+#### Implémentation technique
+- **Nouvelle option de configuration** : "Inclure les factures modèle client" (`SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES`)
+- **Table utilisée** : `llx_facture_rec` (factures récurrentes Dolibarr)
+- **Nouvelles fonctions** :
+  - `sig_get_customer_template_invoices_for_month()` : Calcul de la marge mensuelle
+  - `sig_should_generate_template_invoice_for_month()` : Logique de fréquence
+  - `sig_get_customer_template_invoices_details_for_month()` : Support diagnostic
+
+#### Logique de calcul
+- **Formule** : Marge = Montant HT × Taux de marge configuré
+- **Fréquence mensuelle** : Marge comptée tous les mois
+- **Fréquence trimestrielle** : Marge comptée tous les 3 mois (janv, avril, juillet, oct)
+- **Fréquence annuelle** : Marge comptée une fois par an selon la date de référence
+
+#### Interface utilisateur
+- **Affichage** : Ligne "Factures modèle: +X€" en orange (#FF9800) dans les encaissements
+- **Intégration** : Prise en compte dans tous les calculs de solde et totaux
+- **Configuration** : Case à cocher native Dolibarr dans admin/setup.php
+
+#### Corrections importantes
+- ✅ **Logique temporelle corrigée** : Marge comptée le mois de génération (pas d'encaissement)
+- ✅ **Restriction aux mois futurs** : Factures modèle appliquées seulement à partir du mois actuel
+- ✅ **Évitement du double comptage** : Pas de prise en compte des factures déjà générées
+
+#### Formule de trésorerie mise à jour
+```
+Solde fin = Solde début + Encaissements + Factures client + Factures modèle + Marge précédente - Décaissements - Salaires impayés
+```
+
+#### Configuration requise
+- **Activation** : Cocher "Inclure les factures modèle client" dans Configuration > Modules > SIG
+- **Prérequis** : Module factures récurrentes Dolibarr activé avec factures modèle configurées
+- **Taux de marge** : Utilise le taux configuré dans le module (défaut : 20%)
+
+---
+
+## Version 0.41 (2025-09-21)
+
+### 🐛 **Correction critique : Calcul du solde de fin de mois**
+
+#### Problème corrigé
+- ✅ **Erreur majeure** : Les salaires impayés n'étaient pas pris en compte dans le calcul du solde de fin de mois
+- ✅ **Impact** : Le solde de fin de mois était surévalué car les salaires impayés étaient affichés mais pas déduits du calcul
+- ✅ **Solution** : Ajout de `- $salaires_impayes_mois` dans la formule de calcul du solde
+
+#### Détail technique
+- **Fichier modifié** : `tresorerie.php` (ligne 179)
+- **Avant** : `$solde_fin_mois = $solde_debut_mois + $encaissements_mois + $factures_client_mois + $marge_mois_precedent - $decaissements_mois;`
+- **Après** : `$solde_fin_mois = $solde_debut_mois + $encaissements_mois + $factures_client_mois + $marge_mois_precedent - $decaissements_mois - $salaires_impayes_mois;`
+
+#### Impact de la correction
+- ✅ **Solde de fin de mois** : Maintenant exact et précis
+- ✅ **Prévisions de trésorerie** : Désormais fiables
+- ✅ **Configuration** : Aucune modification requise, correction automatique si l'option "Inclure les salaires impayés" est activée
+
+---
+
 ## Version 0.4 (2025-09-21)
 
 ### 🚀 Refonte majeure de la page trésorerie

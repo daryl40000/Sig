@@ -64,6 +64,13 @@ if ($action == 'setvalue' && $user->admin) {
         $include_unpaid_salaries = 0;
     }
     
+    // Gestion de la case à cocher pour inclure les factures modèle client
+    if (GETPOST('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES', 'int')) {
+        $include_customer_template_invoices = 1;
+    } else {
+        $include_customer_template_invoices = 0;
+    }
+    
     $result1 = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
     $result2 = dolibarr_set_const($db, 'SIG_MARGIN_RATE', $margin_rate, 'chaine', 0, '', $conf->entity);
     $result3 = dolibarr_set_const($db, 'SIG_PAYMENT_DELAY', $payment_delay, 'chaine', 0, '', $conf->entity);
@@ -72,8 +79,9 @@ if ($action == 'setvalue' && $user->admin) {
     $result6 = dolibarr_set_const($db, 'SIG_INCLUDE_SIGNED_QUOTES', $include_signed_quotes, 'yesno', 0, '', $conf->entity);
     $result7 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_INVOICES', $include_customer_invoices, 'yesno', 0, '', $conf->entity);
     $result8 = dolibarr_set_const($db, 'SIG_INCLUDE_UNPAID_SALARIES', $include_unpaid_salaries, 'yesno', 0, '', $conf->entity);
+    $result9 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES', $include_customer_template_invoices, 'yesno', 0, '', $conf->entity);
     
-    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0 && $result8 > 0) {
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0 && $result8 > 0 && $result9 > 0) {
         $db->commit();
         setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     } else {
@@ -267,6 +275,22 @@ if (!empty($current_include_unpaid_salaries) && $current_include_unpaid_salaries
 print '<input type="checkbox" name="SIG_INCLUDE_UNPAID_SALARIES" value="1"'.$checked_salaries.' class="flat">';
 print '</td>';
 print '<td>'.$langs->trans("SigIncludeUnpaidSalariesHelp").'</td>';
+print '</tr>';
+
+// Option pour inclure les factures modèle client (case à cocher native)
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigIncludeCustomerTemplateInvoices").'</td>';
+print '<td>';
+
+$current_include_customer_template_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES');
+$checked_template = '';
+if (!empty($current_include_customer_template_invoices) && $current_include_customer_template_invoices == '1') {
+    $checked_template = ' checked="checked"';
+}
+
+print '<input type="checkbox" name="SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES" value="1"'.$checked_template.' class="flat">';
+print '</td>';
+print '<td>'.$langs->trans("SigIncludeCustomerTemplateInvoicesHelp").'</td>';
 print '</tr>';
 
 print '</table>';
