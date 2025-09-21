@@ -72,36 +72,16 @@ if ($selected_bank_account > 0) {
     print '</div>';
 }
 
-// SECTION RÉSUMÉ : Indicateurs de trésorerie
-$total_year_ca = sig_get_total_turnover_for_year($db, $year);
-$total_year_ca_prevu = sig_get_total_expected_turnover_for_year($db, $year);
-
-print '<div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">';
-
-// CA Encaissé
-print '<div class="info-box" style="background: #e8f5e8; border: 1px solid #4CAF50; border-radius: 5px; padding: 15px; flex: 1; min-width: 250px;">';
-print '<div style="text-align: center;">';
-print '<h3 style="margin: 0; color: #2E7D32;">CA Encaissé</h3>';
-print '<div style="font-size: 20px; font-weight: bold; color: #1B5E20; margin-top: 8px;">'.price($total_year_ca).'</div>';
-print '<div style="font-size: 12px; color: #666; margin-top: 3px;">Factures payées</div>';
-print '</div>';
-print '</div>';
-
-
-// CA Potentiel
-print '<div class="info-box" style="background: #e3f2fd; border: 1px solid #2196F3; border-radius: 5px; padding: 15px; flex: 1; min-width: 250px;">';
-print '<div style="text-align: center;">';
-print '<h3 style="margin: 0; color: #1565C0;">CA Potentiel</h3>';
-print '<div style="font-size: 20px; font-weight: bold; color: #0D47A1; margin-top: 8px;">'.price($total_year_ca_prevu).'</div>';
-print '<div style="font-size: 12px; color: #666; margin-top: 3px;">Devis signés</div>';
-print '</div>';
-print '</div>';
-
-print '</div>';
+// SECTION RÉSUMÉ : Indicateurs de trésorerie supprimés (disponibles sur leur page dédiée)
 
 // SECTION: Évolution de la Trésorerie par Mois (seulement si un compte est configuré)
 if ($selected_bank_account > 0) {
     print load_fiche_titre('Évolution de la Trésorerie par Mois', '', 'fa-chart-line');
+    
+    // GRAPHIQUE : Évolution des soldes de fin de mois
+    print '<div style="margin-bottom: 30px; height: 400px;">';
+    print '<canvas id="tresorerieChart"></canvas>';
+    print '</div>';
 
     print '<table class="noborder centpercent">';
     print '<tr class="liste_titre">';
@@ -116,41 +96,101 @@ if ($selected_bank_account > 0) {
     $total_encaissements = 0;
     $total_decaissements = 0;
     
+    // Données pour le graphique
+    $mois_labels = [];
+    $soldes_data = [];
+    
     // Nouvelle approche : calculer le solde à la fin de chaque mois directement
     $solde_fin_precedent = 0;
     
     for ($month = 1; $month <= 12; $month++) {
-        // Le solde de début est le solde de fin théorique du mois précédent
+        // Déterminer si c'est un mois écoulé ou en cours/futur
+        $current_date = new DateTime();
+        $current_year = (int) $current_date->format('Y');
+        $current_month = (int) $current_date->format('n');
+        $is_past_month = ($year < $current_year) || ($year == $current_year && $month < $current_month);
+        
+        if ($is_past_month) {
+            // ========== MOIS ÉCOULÉS : DONNÉES EXACTES DU MODULE BANQUE ==========
+            
+            // Solde début = solde réel à la fin du mois précédent
         if ($month == 1) {
-            // Pour janvier, calculer le solde fin théorique de décembre de l'année précédente
-            $solde_bancaire_decembre = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
-            $marge_decembre = sig_get_expected_margin_with_delay_for_month($db, $year - 1, 12);
-            $solde_debut_mois = $solde_bancaire_decembre + $marge_decembre;
+                $solde_debut_mois = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
         } else {
-            $solde_debut_mois = $solde_fin_precedent;
+                $solde_debut_mois = sig_get_bank_balance_at_date($db, $selected_bank_account, $year, $month - 1, 31);
+            }
+            
+            // Mouvements réels du mois depuis le module banque
+            $mouvements_reels = sig_get_bank_movements_real_for_month($db, $selected_bank_account, $year, $month);
+            $encaissements_mois = $mouvements_reels['encaissements'];
+            $decaissements_mois = abs($mouvements_reels['decaissements']);
+            
+            
+            // Solde fin = solde réel à la fin du mois
+            $solde_fin_mois = sig_get_bank_balance_at_date($db, $selected_bank_account, $year, $month, 31);
+            
+            // Aucun élément prévisionnel pour les mois écoulés
+            $marge_avec_delai = 0;
+            $factures_client_mois = 0;
+            $salaires_impayes_mois = 0;
+            
+        } else {
+            // ========== MOIS ACTUEL + FUTURS : TRÉSORERIE PRÉVISIONNELLE ==========
+            
+            // Solde début
+            if ($month == 1) {
+                $solde_debut_mois = sig_get_bank_balance_at_date($db, $selected_bank_account, $year - 1, 12, 31);
+            } else {
+                $solde_debut_mois = $solde_fin_precedent;
+            }
+            
+            // Mouvements bancaires + éléments prévisionnels
+            $mouvements_details = sig_get_bank_movements_details_for_month($db, $selected_bank_account, $year, $month);
+            $encaissements_mois = $mouvements_details['encaissements'];
+            $decaissements_mois = abs($mouvements_details['decaissements']);
+            
+            // Éléments prévisionnels
+            $marge_avec_delai = sig_get_expected_margin_with_delay_for_month($db, $year, $month);
+            
+            $factures_client_mois = 0;
+            $include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
+            if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
+                $factures_client_mois = sig_get_customer_invoices_for_month($db, $year, $month);
+            }
+            
+            $salaires_impayes_mois = 0;
+            $include_unpaid_salaries = getDolGlobalString('SIG_INCLUDE_UNPAID_SALARIES');
+            if (!empty($include_unpaid_salaries) && $include_unpaid_salaries == '1') {
+                $salaires_impayes_mois = sig_get_unpaid_salaries_for_month($db, $year, $month);
+            }
+            
+            // Calcul prévisionnel du solde fin selon la formule demandée
+            // Solde début + Encaissements effectués + Factures client impayées + Marge mois précédent - Ensemble décaissements
+            
+            // Marge du mois précédent (si applicable)
+            $marge_mois_precedent = 0;
+            if ($month > 1) {
+                $marge_mois_precedent = sig_get_expected_margin_with_delay_for_month($db, $year, $month - 1);
+            } elseif ($year > 2024) {
+                $marge_mois_precedent = sig_get_expected_margin_with_delay_for_month($db, $year - 1, 12);
+            }
+            
+            // Calcul selon votre formule
+            $solde_fin_mois = $solde_debut_mois + $encaissements_mois + $factures_client_mois + $marge_mois_precedent - $decaissements_mois;
+            
         }
-        
-        // Récupérer les mouvements détaillés du mois
-        $mouvements_details = sig_get_bank_movements_details_for_month($db, $selected_bank_account, $year, $month);
-        $encaissements_mois = $mouvements_details['encaissements'];
-        $decaissements_mois = abs($mouvements_details['decaissements']); // Valeur absolue pour l'affichage
-        
-        // Calculer le solde fin théorique : Solde début + Encaissements - Décaissements + Marge avec délai + Factures client
-        // La marge avec délai et les factures client sont ajoutées ici, pas dans les encaissements pour éviter le double comptage
-        $marge_avec_delai = sig_get_expected_margin_with_delay_for_month($db, $year, $month);
-        $factures_client_mois = 0;
-        $include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
-        if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
-            $factures_client_mois = sig_get_customer_invoices_for_month($db, $year, $month);
-        }
-        $solde_fin_mois = $solde_debut_mois + $encaissements_mois - $decaissements_mois + $marge_avec_delai + $factures_client_mois;
     
         
         // Calculer la variation du mois
         $variation_mois = $solde_fin_mois - $solde_debut_mois;
         
+        // Collecter les données pour le graphique
+        $mois_labels[] = dol_print_date(dol_mktime(0, 0, 0, $month, 1, $year), '%b %Y');
+        $soldes_data[] = round($solde_fin_mois, 2);
+        
         $total_encaissements += $encaissements_mois;
         $total_decaissements += $decaissements_mois;
+        $total_salaires_impayes_annee += $salaires_impayes_mois;
         
         // Style de la ligne selon la variation
         $row_style = '';
@@ -178,14 +218,20 @@ if ($selected_bank_account > 0) {
         }
         
         // Afficher les encaissements avec indication des montants à venir
-        $encaissements_bruts = $mouvements_details['encaissements'];
+        // Pour les mois écoulés : utiliser les encaissements réels
+        // Pour les mois futurs : utiliser les encaissements prévisionnels
+        if ($is_past_month) {
+            $encaissements_bruts = $encaissements_mois; // Données réelles du module banque
+        } else {
+            $encaissements_bruts = $mouvements_details['encaissements']; // Données prévisionnelles
+        }
         $total_encaissements_prevus = $encaissements_bruts + $marge_prevue_affichage + $factures_client_affichage;
         
         if ($marge_prevue_affichage > 0 || $factures_client_affichage > 0) {
             print '<td style="text-align: right; color: #2E7D32;">'.($encaissements_bruts > 0 ? '+'.price($encaissements_bruts) : price($encaissements_bruts));
             
             if ($marge_prevue_affichage > 0) {
-                print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($marge_prevue_affichage).'</small>';
+            print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($marge_prevue_affichage).'</small>';
             }
             
             if ($factures_client_affichage > 0) {
@@ -197,12 +243,22 @@ if ($selected_bank_account > 0) {
             print '<td style="text-align: right; color: #2E7D32;">'.($encaissements_bruts > 0 ? '+'.price($encaissements_bruts) : price($encaissements_bruts)).'</td>';
         }
         
-        // Afficher les décaissements avec indication des factures fournisseur et charges
-        $factures_fournisseur = $mouvements_details['factures_fournisseur'];
-        $charges_fiscales_sociales = $mouvements_details['charges_fiscales_sociales'];
-        $decaissements_bancaires = $decaissements_mois - $factures_fournisseur - $charges_fiscales_sociales;
+        // Afficher les décaissements avec indication des factures fournisseur, charges et salaires
+        if ($is_past_month) {
+            // Mois écoulés : pas de factures fournisseur ni charges prévisionnelles
+            $factures_fournisseur = 0;
+            $charges_fiscales_sociales = 0;
+            $decaissements_bancaires = $decaissements_mois; // Tous les décaissements sont bancaires
+        } else {
+            // Mois futurs : utiliser les données prévisionnelles
+            $factures_fournisseur = $mouvements_details['factures_fournisseur'];
+            $charges_fiscales_sociales = $mouvements_details['charges_fiscales_sociales'];
+            $decaissements_bancaires = $decaissements_mois - $factures_fournisseur - $charges_fiscales_sociales;
+        }
+        $total_decaissements_prevus = $decaissements_mois + $salaires_impayes_mois;
         
-        if ($factures_fournisseur > 0 || $charges_fiscales_sociales > 0) {
+        
+        if ($factures_fournisseur > 0 || $charges_fiscales_sociales > 0 || $salaires_impayes_mois > 0) {
             print '<td style="text-align: right; color: #C62828;">'.($decaissements_bancaires > 0 ? '-'.price($decaissements_bancaires) : price($decaissements_bancaires));
             
             if ($factures_fournisseur > 0) {
@@ -213,26 +269,21 @@ if ($selected_bank_account > 0) {
                 print '<br><small style="color: #E91E63;">+ Charges fiscales/sociales: -'.price($charges_fiscales_sociales).'</small>';
             }
             
-            print '<br><strong>Total: -'.price($decaissements_mois).'</strong></td>';
+            if ($salaires_impayes_mois > 0) {
+                print '<br><small style="color: #9C27B0;">+ Salaires impayés: -'.price($salaires_impayes_mois).'</small>';
+            }
+            
+            print '<br><strong>Total: -'.price($total_decaissements_prevus).'</strong></td>';
         } else {
             print '<td style="text-align: right; color: #C62828;">'.($decaissements_mois > 0 ? '-'.price($decaissements_mois) : price($decaissements_mois)).'</td>';
         }
         
-        // Afficher le solde fin avec indication des montants ajoutés
-        if ($marge_avec_delai > 0 || $factures_client_mois > 0) {
-            $solde_sans_ajouts = $solde_fin_mois - $marge_avec_delai - $factures_client_mois;
-            print '<td style="text-align: right; font-weight: bold;">'.price($solde_sans_ajouts);
-            
-            if ($marge_avec_delai > 0) {
-                print '<br><small style="color: #4CAF50;">+ Marge (délai): +'.price($marge_avec_delai).'</small>';
-            }
-            
-            if ($factures_client_mois > 0) {
-                print '<br><small style="color: #2196F3;">+ Factures client: +'.price($factures_client_mois).'</small>';
-            }
-            
-            print '<br><strong>Total: '.price($solde_fin_mois).'</strong></td>';
+        // Afficher le solde fin
+        if ($is_past_month) {
+            // Mois écoulés : solde réel simple
+            print '<td style="text-align: right; font-weight: bold;">'.price($solde_fin_mois).'</td>';
         } else {
+            // Mois actuels/futurs : solde prévisionnel simple
             print '<td style="text-align: right; font-weight: bold;">'.price($solde_fin_mois).'</td>';
         }
         
@@ -256,13 +307,17 @@ if ($selected_bank_account > 0) {
     if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
         $factures_client_decembre = sig_get_customer_invoices_for_month($db, $year - 1, 12);
     }
-    $total_solde_debut = $solde_debut_annee + $marge_decembre + $factures_client_decembre;
+    $salaires_impayes_decembre = 0;
+    $include_unpaid_salaries = getDolGlobalString('SIG_INCLUDE_UNPAID_SALARIES');
+    // Calculé dans la boucle principale pour éviter les requêtes multiples
+    $total_solde_debut = $solde_debut_annee + $marge_decembre + $factures_client_decembre - $salaires_impayes_decembre;
     
     // Totaux des mouvements de l'année
     $total_encaissements_reel = 0;
     $total_decaissements_reel = 0;
     $total_marge_avec_delai = 0;
     $total_factures_client_annee = 0;
+    $total_salaires_impayes_annee = 0;
     
     for ($m = 1; $m <= 12; $m++) {
         $mouvements_mois = sig_get_bank_movements_details_for_month($db, $selected_bank_account, $year, $m);
@@ -273,6 +328,7 @@ if ($selected_bank_account > 0) {
         if (!empty($include_customer_invoices) && $include_customer_invoices == '1') {
             $total_factures_client_annee += sig_get_customer_invoices_for_month($db, $year, $m);
         }
+        // Calculé dans la boucle principale pour éviter les requêtes multiples
     }
     
     // Solde fin = solde de fin de décembre (dernier mois calculé)
@@ -285,9 +341,9 @@ if ($selected_bank_account > 0) {
     $total_marge_prevue = 0;
     $include_signed_quotes = getDolGlobalString('SIG_INCLUDE_SIGNED_QUOTES');
     if (!empty($include_signed_quotes) && $include_signed_quotes == '1') {
-        for ($m = $current_month; $m <= 12; $m++) {
-            if ($year >= $current_year) {
-                $total_marge_prevue += sig_get_expected_margin_for_month($db, $year, $m);
+    for ($m = $current_month; $m <= 12; $m++) {
+        if ($year >= $current_year) {
+            $total_marge_prevue += sig_get_expected_margin_for_month($db, $year, $m);
             }
         }
     }
@@ -301,17 +357,20 @@ if ($selected_bank_account > 0) {
         }
     }
     
+    // Calculé dans la boucle principale pour éviter les requêtes multiples
+    
     print '<tr class="liste_total">';
     print '<td><strong>TOTAL ANNÉE '.$year.'</strong></td>';
     print '<td style="text-align: right; font-weight: bold;">'.price($total_solde_debut).'</td>';
     
     $total_encaissements_prevus = $total_encaissements_reel + $total_marge_prevue + $total_factures_client;
+    $total_decaissements_prevus = $total_decaissements_reel + $total_salaires_impayes_annee;
     
     if ($total_marge_prevue > 0 || $total_factures_client > 0) {
         print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements_reel);
         
         if ($total_marge_prevue > 0) {
-            print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($total_marge_prevue).'</small>';
+        print '<br><small style="color: #4CAF50;">+ Marge prévue: +'.price($total_marge_prevue).'</small>';
         }
         
         if ($total_factures_client > 0) {
@@ -323,7 +382,15 @@ if ($selected_bank_account > 0) {
         print '<td style="text-align: right; font-weight: bold; color: #2E7D32;">+'.price($total_encaissements_reel).'</td>';
     }
     
+    // Afficher les totaux des décaissements
+    if ($total_salaires_impayes_annee > 0) {
+        print '<td style="text-align: right; font-weight: bold; color: #C62828;">-'.price($total_decaissements_reel);
+        print '<br><small style="color: #9C27B0;">+ Salaires impayés: -'.price($total_salaires_impayes_annee).'</small>';
+        print '<br><strong>Total: -'.price($total_decaissements_prevus).'</strong></td>';
+    } else {
     print '<td style="text-align: right; font-weight: bold; color: #C62828;">-'.price($total_decaissements_reel).'</td>';
+    }
+    
     print '<td style="text-align: right; font-weight: bold;">'.price($total_solde_fin).'</td>';
     $variation_color = $total_variation >= 0 ? '#2E7D32' : '#C62828';
     $variation_sign = $total_variation > 0 ? '+' : '';
@@ -332,6 +399,83 @@ if ($selected_bank_account > 0) {
 
     print '</table>';
     print '<br>';
+    
+    // Script JavaScript pour le graphique
+    ?>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    const ctx = document.getElementById('tresorerieChart').getContext('2d');
+    const tresorerieChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: <?php echo json_encode($mois_labels); ?>,
+            datasets: [{
+                label: 'Solde de fin de mois (€)',
+                data: <?php echo json_encode($soldes_data); ?>,
+                borderColor: '#2196F3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#2196F3',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Évolution des Soldes de Fin de Mois - <?php echo $year; ?>',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value, index, values) {
+                            return new Intl.NumberFormat('fr-FR', {
+                                style: 'currency',
+                                currency: 'EUR',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0
+                            }).format(value);
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            elements: {
+                point: {
+                    hoverBackgroundColor: '#1976D2'
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+    </script>
+    <?php
 } else {
     // Message si aucun compte n'est configuré
     print load_fiche_titre('Évolution de la Trésorerie par Mois', '', 'fa-chart-line');
@@ -340,96 +484,12 @@ if ($selected_bank_account > 0) {
     print '</div>';
 }
 
-// SECTION: Informations bancaires si un compte est configuré
-if ($selected_bank_account > 0 && isset($account) && $account->rowid > 0) {
-    print load_fiche_titre('Solde Bancaire - '.$account->label, '', 'fa-university');
-    
-    // Calculer le solde actuel
-    $solde_actuel = sig_get_bank_balance($db, $selected_bank_account);
-    $mouvements_mois = sig_get_bank_movements_for_month($db, $selected_bank_account, $year, date('n'));
-    
-    print '<div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">';
-    
-    // Solde actuel
-    print '<div class="info-box" style="background: #e8f5e8; border: 1px solid #4CAF50; border-radius: 5px; padding: 15px; flex: 1; min-width: 250px;">';
-    print '<div style="text-align: center;">';
-    print '<h3 style="margin: 0; color: #2E7D32;">Solde Actuel</h3>';
-    print '<div style="font-size: 20px; font-weight: bold; color: #1B5E20; margin-top: 8px;">'.price($solde_actuel).'</div>';
-    print '<div style="font-size: 12px; color: #666; margin-top: 3px;">'.date('d/m/Y').'</div>';
-    print '</div>';
-    print '</div>';
-    
-    // Mouvements du mois
-    print '<div class="info-box" style="background: #e3f2fd; border: 1px solid #2196F3; border-radius: 5px; padding: 15px; flex: 1; min-width: 250px;">';
-    print '<div style="text-align: center;">';
-    print '<h3 style="margin: 0; color: #1565C0;">Mouvements '.date('M Y').'</h3>';
-    print '<div style="font-size: 20px; font-weight: bold; color: #0D47A1; margin-top: 8px;">'.price($mouvements_mois).'</div>';
-    print '<div style="font-size: 12px; color: #666; margin-top: 3px;">Crédit - Débit</div>';
-    print '</div>';
-    print '</div>';
-    
-    print '</div>';
-}
+// Section "Solde Bancaire" supprimée (informations redondantes avec le tableau principal)
 
 
 llxFooter();
 $db->close();
 
-/**
- * Retourne le CA HT total de l'année à partir des factures validées et payées.
- *
- * @param DoliDB $db
- * @param int $year
- * @return float
- */
-function sig_get_total_turnover_for_year(DoliDB $db, int $year): float
-{
-	global $conf;
-
-	// Calcul des timestamps (début et fin d'année)
-	$firstday_timestamp = dol_mktime(0, 0, 0, 1, 1, $year);
-	$lastday_timestamp = dol_mktime(23, 59, 59, 12, 31, $year);
-
-	$sql = 'SELECT SUM(f.total_ht) as total_ht';
-	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
-	$sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
-	$sql .= ' AND f.fk_statut IN (1,2)'; // Seulement les factures Validées (statut 1) et Payées (statut 2)
-	$sql .= ' AND f.type IN (0, 1)'; // Factures standard (0) et avoirs (1) - exclut les remplacements (2)
-	$sql .= " AND f.datef BETWEEN '".$db->idate($firstday_timestamp)."' AND '".$db->idate($lastday_timestamp)."'";
-
-	$total = 0.0;
-	$resql = $db->query($sql);
-	if ($resql) {
-		$obj = $db->fetch_object($resql);
-		if ($obj && !empty($obj->total_ht)) $total = (float) $obj->total_ht;
-		$db->free($resql);
-	}
-	return (float) $total;
-}
-
-/**
- * Retourne le CA HT prévu de l'année à partir des devis signés.
- * Les devis signés correspondent au statut 2 dans Dolibarr.
- * Utilise la même logique que le tableau : date de livraison si renseignée, sinon mois courant.
- *
- * @param DoliDB $db
- * @param int $year
- * @return float
- */
-function sig_get_total_expected_turnover_for_year(DoliDB $db, int $year): float
-{
-	global $conf;
-
-	// Calculer le total en utilisant la même logique que le tableau
-	$total = 0.0;
-	
-	// Somme tous les mois de l'année
-	for ($m = 1; $m <= 12; $m++) {
-		$total += sig_get_expected_turnover_for_month($db, $year, $m);
-	}
-	
-	return (float) $total;
-}
 
 /**
  * Retourne le CA HT prévu du mois à partir des devis signés.
@@ -511,16 +571,34 @@ function sig_get_supplier_invoices_for_month(DoliDB $db, int $year, int $month):
 {
 	global $conf;
 
-	$date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
-	$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
-	$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+	// Déterminer si on est dans le mois actuel ou futur
+	$current_date = new DateTime();
+	$current_year = (int) $current_date->format('Y');
+	$current_month = (int) $current_date->format('n');
+	$is_current_month = ($year == $current_year && $month == $current_month);
+	$is_future_month = ($year > $current_year) || ($year == $current_year && $month > $current_month);
 
 	$sql = 'SELECT SUM(f.total_ht) as total_ht';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture_fourn as f';
 	$sql .= ' WHERE f.entity IN ('.getEntity('supplier_invoice', 1).')';
 	$sql .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
+
+	if ($is_current_month) {
+		// Mois actuel : TOUTES les factures fournisseur en retard + celles qui arrivent à échéance ce mois-ci
+		$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+		$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+		$sql .= " AND f.date_lim_reglement <= '".$db->escape($date_end)."'";
+	} elseif ($is_future_month) {
+		// Mois futur : seulement les factures avec date limite dans ce mois
+		$date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
+		$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+		$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
 	$sql .= " AND f.date_lim_reglement >= '".$db->escape($date_start)."'";
 	$sql .= " AND f.date_lim_reglement <= '".$db->escape($date_end)."'";
+	} else {
+		// Mois passé : aucune facture prévisionnelle
+		return 0.0;
+	}
 
 	$total = 0.0;
 	$resql = $db->query($sql);
@@ -540,9 +618,17 @@ function sig_get_tax_social_charges_for_month(DoliDB $db, int $year, int $month)
 {
 	global $conf;
 
-	$date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
-	$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
-	$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+	// Déterminer si on est dans le mois actuel ou futur
+	$current_date = new DateTime();
+	$current_year = (int) $current_date->format('Y');
+	$current_month = (int) $current_date->format('n');
+	$is_current_month = ($year == $current_year && $month == $current_month);
+	$is_future_month = ($year > $current_year) || ($year == $current_year && $month > $current_month);
+
+	// Si mois passé, aucune charge prévisionnelle
+	if (!$is_current_month && !$is_future_month) {
+		return 0.0;
+	}
 
 	$total = 0.0;
 
@@ -551,8 +637,21 @@ function sig_get_tax_social_charges_for_month(DoliDB $db, int $year, int $month)
 	$sql_social .= ' FROM '.MAIN_DB_PREFIX.'facture_fourn as f';
 	$sql_social .= ' WHERE f.entity IN ('.getEntity('supplier_invoice', 1).')';
 	$sql_social .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
+
+	if ($is_current_month) {
+		// Mois actuel : TOUTES les charges en retard + celles qui arrivent à échéance ce mois-ci
+		$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+		$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+		$sql_social .= " AND f.date_lim_reglement <= '".$db->escape($date_end)."'";
+	} else {
+		// Mois futur : seulement les charges avec date limite dans ce mois
+		$date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
+		$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+		$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
 	$sql_social .= " AND f.date_lim_reglement >= '".$db->escape($date_start)."'";
 	$sql_social .= " AND f.date_lim_reglement <= '".$db->escape($date_end)."'";
+	}
+
 	$sql_social .= " AND (f.ref LIKE '%URSSAF%' OR f.ref LIKE '%RETRAITE%' OR f.ref LIKE '%SECU%' OR f.ref LIKE '%CHOMAGE%' OR f.ref LIKE '%PREVOYANCE%' OR f.ref LIKE '%MUTUELLE%')";
 
 	$resql = $db->query($sql_social);
@@ -656,12 +755,12 @@ function sig_get_sociales_charges_for_month(DoliDB $db, int $year, int $month): 
 							$db->free($resql_paye);
 							
 							$resql = $db->query($sql);
-							if ($resql) {
-								$obj = $db->fetch_object($resql);
+	if ($resql) {
+		$obj = $db->fetch_object($resql);
 								if ($obj && !empty($obj->total_amount)) {
 									$total += (float) $obj->total_amount;
-								}
-								$db->free($resql);
+		}
+		$db->free($resql);
 							}
 							break; // Si on trouve une colonne de montant qui fonctionne, on s'arrête
 						}
@@ -689,7 +788,7 @@ function sig_get_chargesociales_for_month(DoliDB $db, int $year, int $month): fl
 	$date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
 	$last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
 	$date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
-
+	
 	$total = 0.0;
 
 	// Vérifier si la table existe
@@ -707,15 +806,15 @@ function sig_get_chargesociales_for_month(DoliDB $db, int $year, int $month): fl
 		$sql .= " AND paye = 0"; // Seulement les charges non payées
 		
 		$resql = $db->query($sql);
-		if ($resql) {
+	if ($resql) {
 			$obj = $db->fetch_object($resql);
 			if ($obj && !empty($obj->total_amount)) {
 				$total = (float) $obj->total_amount;
-			}
-			$db->free($resql);
+		}
+		$db->free($resql);
 		}
 	}
-
+	
 	return (float) $total;
 }
 
@@ -813,6 +912,57 @@ function sig_get_bank_movements_for_month(DoliDB $db, int $account_id, int $year
 		$db->free($resql);
 	}
 	return (float) $movements;
+}
+
+/**
+ * Retourne UNIQUEMENT les mouvements bancaires réels pour un mois donné
+ * SANS aucun élément prévisionnel - directement depuis la table bank
+ */
+function sig_get_bank_movements_real_for_month(DoliDB $db, int $account_id, int $year, int $month): array
+{
+    $date_start = sprintf('%04d-%02d-01', $year, $month);
+    $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+    $date_end = sprintf('%04d-%02d-%02d', $year, $month, $last_day);
+
+    // Encaissements (montants positifs)
+    $sql_enc = "SELECT SUM(b.amount) as total";
+    $sql_enc .= " FROM ".MAIN_DB_PREFIX."bank as b";
+    $sql_enc .= " WHERE b.fk_account = ".(int)$account_id;
+    $sql_enc .= " AND DATE(b.datev) >= '".$db->escape($date_start)."'";
+    $sql_enc .= " AND DATE(b.datev) <= '".$db->escape($date_end)."'";
+    $sql_enc .= " AND b.amount > 0";
+    
+    // Décaissements (montants négatifs)
+    $sql_dec = "SELECT SUM(b.amount) as total";
+    $sql_dec .= " FROM ".MAIN_DB_PREFIX."bank as b";
+    $sql_dec .= " WHERE b.fk_account = ".(int)$account_id;
+    $sql_dec .= " AND DATE(b.datev) >= '".$db->escape($date_start)."'";
+    $sql_dec .= " AND DATE(b.datev) <= '".$db->escape($date_end)."'";
+    $sql_dec .= " AND b.amount < 0";
+    
+    $encaissements = 0.0;
+    $decaissements = 0.0;
+    
+    // Récupérer encaissements
+    $resql = $db->query($sql_enc);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj && $obj->total) $encaissements = (float) $obj->total;
+        $db->free($resql);
+    }
+    
+    // Récupérer décaissements
+    $resql = $db->query($sql_dec);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj && $obj->total) $decaissements = (float) $obj->total;
+        $db->free($resql);
+    }
+    
+    return array(
+        'encaissements' => $encaissements,
+        'decaissements' => $decaissements
+    );
 }
 
 /**
@@ -928,8 +1078,8 @@ function sig_get_bank_movements_details_for_month($db, $bank_account_id, $year, 
     $include_supplier_invoices = getDolGlobalString('SIG_INCLUDE_SUPPLIER_INVOICES');
     
     if (!empty($include_supplier_invoices) && $include_supplier_invoices == '1') {
-        $factures_fournisseur = sig_get_supplier_invoices_for_month($db, $year, $month);
-        $decaissements += $factures_fournisseur;
+    $factures_fournisseur = sig_get_supplier_invoices_for_month($db, $year, $month);
+    $decaissements += $factures_fournisseur;
     }
     
     // Ajouter les charges fiscales et sociales impayées pour ce mois (si l'option est activée)
@@ -938,8 +1088,8 @@ function sig_get_bank_movements_details_for_month($db, $bank_account_id, $year, 
     
     if (!empty($include_supplier_invoices) && $include_supplier_invoices == '1') {
         // 1. Charges depuis les factures fournisseurs (méthode actuelle)
-        $charges_fiscales_sociales = sig_get_tax_social_charges_for_month($db, $year, $month);
-        $decaissements += $charges_fiscales_sociales;
+    $charges_fiscales_sociales = sig_get_tax_social_charges_for_month($db, $year, $month);
+    $decaissements += $charges_fiscales_sociales;
     }
     
     // 2. Charges sociales depuis le module Sociales (option séparée)
@@ -1006,6 +1156,7 @@ function sig_get_expected_margin_for_month($db, $year, $month) {
     return (float) $total_margin;
 }
 
+
 /**
  * Retourne le montant des factures client impayées pour un mois donné
  * Basé sur la date de règlement prévue (date_lim_reglement)
@@ -1022,18 +1173,35 @@ function sig_get_customer_invoices_for_month(DoliDB $db, int $year, int $month):
     $month = (int) $month;
     $year = (int) $year;
     
-    // Calculer les dates de début et fin du mois
-    $date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
-    $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
-    $date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+    // Déterminer si on est dans le mois actuel ou futur
+    $current_date = new DateTime();
+    $current_year = (int) $current_date->format('Y');
+    $current_month = (int) $current_date->format('n');
+    $is_current_month = ($year == $current_year && $month == $current_month);
+    $is_future_month = ($year > $current_year) || ($year == $current_year && $month > $current_month);
     
-    // Requête pour récupérer les factures client impayées avec date de règlement dans le mois
+    // Requête pour récupérer les factures client impayées
     $sql = 'SELECT SUM(f.total_ht) as total_ht';
     $sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
     $sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
     $sql .= ' AND f.fk_statut = 1'; // Statut 1 = Validée mais non payée
-    $sql .= ' AND f.date_lim_reglement >= "'.$db->escape($date_start).'"';
-    $sql .= ' AND f.date_lim_reglement <= "'.$db->escape($date_end).'"';
+    
+    if ($is_current_month) {
+        // Mois actuel : TOUTES les factures en retard + celles qui arrivent à échéance ce mois-ci
+        $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+        $date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+        $sql .= ' AND f.date_lim_reglement <= "'.$db->escape($date_end).'"';
+    } elseif ($is_future_month) {
+        // Mois futur : seulement les factures avec date limite dans ce mois
+        $date_start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
+        $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+        $date_end = sprintf('%04d-%02d-%02d 23:59:59', $year, $month, $last_day);
+        $sql .= ' AND f.date_lim_reglement >= "'.$db->escape($date_start).'"';
+        $sql .= ' AND f.date_lim_reglement <= "'.$db->escape($date_end).'"';
+    } else {
+        // Mois passé : aucune facture prévisionnelle
+        return 0.0;
+    }
     
     $resql = $db->query($sql);
     if ($resql) {
@@ -1045,7 +1213,7 @@ function sig_get_customer_invoices_for_month(DoliDB $db, int $year, int $month):
         $db->free($resql);
     }
     
-    return 0.0;
+        return 0.0;
 }
 
 /**
@@ -1196,4 +1364,63 @@ function sig_get_bank_movements_details_for_month_alternative($db, $bank_account
         'encaissements' => $encaissements,
         'decaissements' => $decaissements
     );
+}
+
+/**
+ * Retourne le montant des salaires impayés pour un mois donné
+ * Utilise la colonne dateep (date de fin de période) pour déterminer le mois
+ * et paye = 0 pour identifier les salaires impayés
+ */
+function sig_get_unpaid_salaries_for_month(DoliDB $db, int $year, int $month): float
+{
+    global $conf;
+    
+    // Vérifier que les paramètres sont valides
+    if (empty($month) || !is_numeric($month) || $month < 1 || $month > 12) {
+        return 0.0;
+    }
+    
+    $month = (int) $month;
+    $year = (int) $year;
+    
+    // Déterminer si on est dans le mois actuel ou futur
+    $current_date = new DateTime();
+    $current_year = (int) $current_date->format('Y');
+    $current_month = (int) $current_date->format('n');
+    $is_current_month = ($year == $current_year && $month == $current_month);
+    $is_future_month = ($year > $current_year) || ($year == $current_year && $month > $current_month);
+    
+    // Requête pour récupérer les salaires impayés
+    $sql = 'SELECT SUM(amount) as total_amount';
+    $sql .= ' FROM '.MAIN_DB_PREFIX.'salary';
+    $sql .= ' WHERE paye = 0'; // Seulement les salaires impayés
+    
+    if ($is_current_month) {
+        // Mois actuel : TOUS les salaires impayés en retard + ceux qui arrivent à échéance ce mois-ci
+        $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+        $date_end = sprintf('%04d-%02d-%02d', $year, $month, $last_day);
+        $sql .= ' AND dateep <= "'.$db->escape($date_end).'"';
+    } elseif ($is_future_month) {
+        // Mois futur : seulement les salaires avec dateep dans ce mois
+        $date_start = sprintf('%04d-%02d-01', $year, $month);
+        $last_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+        $date_end = sprintf('%04d-%02d-%02d', $year, $month, $last_day);
+        $sql .= ' AND dateep >= "'.$db->escape($date_start).'"';
+        $sql .= ' AND dateep <= "'.$db->escape($date_end).'"';
+    } else {
+        // Mois passé : aucun salaire prévisionnel
+        return 0.0;
+    }
+    
+    $resql = $db->query($sql);
+    if ($resql) {
+        $obj = $db->fetch_object($resql);
+        if ($obj && $obj->total_amount) {
+            $db->free($resql);
+            return (float) $obj->total_amount;
+        }
+        $db->free($resql);
+    }
+    
+    return 0.0;
 } 

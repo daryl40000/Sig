@@ -1,5 +1,88 @@
 # Changelog - Module SIG
 
+## Version 0.4 (2025-09-21)
+
+### 🚀 Refonte majeure de la page trésorerie
+
+#### Page de trésorerie épurée et optimisée
+- ✅ **Suppression des sections redondantes** : Suppression des boîtes "CA Encaissé" et "CA Potentiel" (disponibles sur leur page dédiée)
+- ✅ **Suppression de la section "Solde Bancaire"** : Informations redondantes avec le tableau principal
+- ✅ **Interface simplifiée** : Page focalisée uniquement sur l'évolution de la trésorerie
+
+#### Graphique interactif des soldes
+- ✅ **Nouveau graphique Chart.js** : Visualisation de l'évolution des soldes de fin de mois sur l'année
+- ✅ **Design moderne** : Graphique en ligne avec zone remplie, couleurs cohérentes avec l'interface
+- ✅ **Interactivité** : Survol pour voir les valeurs exactes, formatage en euros
+- ✅ **Responsive** : Adaptation automatique à la taille de l'écran
+
+#### Amélioration des données pour les mois passés
+- ✅ **Données exactes du module banque** : Pour les mois écoulés, utilisation des données réelles du module banque Dolibarr
+- ✅ **Fonction dédiée** : `sig_get_bank_movements_real_for_month()` pour récupérer uniquement les mouvements bancaires réels
+- ✅ **Soldes cohérents** : Les soldes de fin des mois passés correspondent exactement au module banque
+
+#### Correction de la logique prévisionnelle
+- ✅ **Mois en cours corrigé** : Inclusion des factures qui arrivent à échéance dans le mois en cours (et pas seulement celles en retard)
+- ✅ **Roll-over des retards** : Les factures/salaires en retard des mois passés sont reportés au mois actuel
+- ✅ **Calcul prévisionnel optimisé** : Nouvelle formule pour le solde fin = Solde début + Encaissements + Factures client + Marge mois précédent - Décaissements
+
+#### Simplification de l'affichage
+- ✅ **Colonne "Solde Fin" simplifiée** : Affichage direct du solde prévisionnel sans détails des composants
+- ✅ **Code nettoyé** : Suppression de toutes les lignes de diagnostic temporaires
+
+### 🔧 Améliorations techniques
+
+#### Nouvelles fonctions
+- ✅ **`sig_get_bank_movements_real_for_month()`** : Récupération des mouvements bancaires réels uniquement
+- ✅ **Collecte de données pour graphique** : Tableaux `$mois_labels` et `$soldes_data`
+
+#### Fonctions supprimées (optimisation)
+- ❌ **`sig_get_total_turnover_for_year()`** : Fonction non utilisée supprimée
+- ❌ **`sig_get_total_expected_turnover_for_year()`** : Fonction non utilisée supprimée
+
+#### Logique améliorée
+- ✅ **Distinction mois écoulés/futurs** : Logique claire avec `$is_past_month`
+- ✅ **Affichage conditionnel** : Les encaissements/décaissements utilisent les bonnes données selon le type de mois
+- ✅ **Correction des dates d'échéance** : Pour le mois en cours, inclusion de toutes les factures jusqu'à la fin du mois
+
+### 📊 Interface utilisateur
+- ✅ **Graphique de 400px de hauteur** : Bonne lisibilité des tendances
+- ✅ **Titre dynamique** : "Évolution des Soldes de Fin de Mois - [Année]"
+- ✅ **Formatage français** : Devise en euros avec séparateurs appropriés
+- ✅ **CDN Chart.js** : Chargement moderne de la bibliothèque graphique
+
+---
+
+## Version 0.35 (2025-09-21)
+
+### ✅ Nouvelles fonctionnalités
+
+#### Gestion des salaires impayés
+- ✅ **Option "Inclure les salaires impayés"** : Contrôle l'inclusion des salaires impayés dans les décaissements à venir
+- ✅ **Fonction optimisée** : Création d'une requête propre `sig_get_unpaid_salaries_for_month()` pour récupérer les salaires impayés par mois
+- ✅ **Affichage détaillé** : Les salaires impayés sont affichés dans la colonne des décaissements avec code couleur violet (#9C27B0)
+- ✅ **Calculs corrects** : Utilisation de la colonne `dateep` (date de fin de période) pour affecter chaque salaire au bon mois
+- ✅ **Totaux annuels** : Prise en compte des salaires impayés dans les totaux de fin d'année
+
+### 🔧 Améliorations techniques
+- ✅ **Requête SQL optimisée** : `WHERE paye = 0` pour identifier les salaires impayés
+- ✅ **Filtrage par mois** : Utilisation de `dateep >= 'YYYY-MM-01' AND dateep <= 'YYYY-MM-31'` pour la répartition mensuelle
+- ✅ **Intégration native** : Respect de l'option de configuration `SIG_INCLUDE_UNPAID_SALARIES`
+- ✅ **Code propre** : Suppression des diagnostics temporaires et optimisation des performances
+
+### 📊 Configuration
+- ✅ **Option de configuration** : "Inclure les salaires impayés" dans la section Trésorerie (admin/setup.php)
+- ✅ **Activation/désactivation** : Case à cocher native Dolibarr pour activer ou désactiver la fonctionnalité
+- ✅ **Constante Dolibarr** : `SIG_INCLUDE_UNPAID_SALARIES` de type `yesno`
+
+### 📈 Fonctionnement
+- **Table utilisée** : `llx_salary`
+- **Critère d'impayé** : `paye = 0`
+- **Date de référence** : `dateep` (date de fin de période)
+- **Montant** : `amount` (montant du salaire)
+- **Affichage** : Dans la colonne "Décaissements" du tableau de trésorerie
+
+---
+
 ## Version 0.3 (2025-01-XX)
 
 ### 🎯 Nouvelles fonctionnalités

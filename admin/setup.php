@@ -57,6 +57,13 @@ if ($action == 'setvalue' && $user->admin) {
         $include_customer_invoices = 0;
     }
     
+    // Gestion de la case à cocher pour inclure les salaires impayés
+    if (GETPOST('SIG_INCLUDE_UNPAID_SALARIES', 'int')) {
+        $include_unpaid_salaries = 1;
+    } else {
+        $include_unpaid_salaries = 0;
+    }
+    
     $result1 = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
     $result2 = dolibarr_set_const($db, 'SIG_MARGIN_RATE', $margin_rate, 'chaine', 0, '', $conf->entity);
     $result3 = dolibarr_set_const($db, 'SIG_PAYMENT_DELAY', $payment_delay, 'chaine', 0, '', $conf->entity);
@@ -64,8 +71,9 @@ if ($action == 'setvalue' && $user->admin) {
     $result5 = dolibarr_set_const($db, 'SIG_INCLUDE_SOCIAL_CHARGES', $include_social_charges, 'yesno', 0, '', $conf->entity);
     $result6 = dolibarr_set_const($db, 'SIG_INCLUDE_SIGNED_QUOTES', $include_signed_quotes, 'yesno', 0, '', $conf->entity);
     $result7 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_INVOICES', $include_customer_invoices, 'yesno', 0, '', $conf->entity);
+    $result8 = dolibarr_set_const($db, 'SIG_INCLUDE_UNPAID_SALARIES', $include_unpaid_salaries, 'yesno', 0, '', $conf->entity);
     
-    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0) {
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0 && $result8 > 0) {
         $db->commit();
         setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     } else {
@@ -245,6 +253,22 @@ print '</td>';
 print '<td>'.$langs->trans("SigIncludeCustomerInvoicesHelp").'</td>';
 print '</tr>';
 
+// Option pour inclure les salaires impayés (case à cocher native)
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigIncludeUnpaidSalaries").'</td>';
+print '<td>';
+
+$current_include_unpaid_salaries = getDolGlobalString('SIG_INCLUDE_UNPAID_SALARIES');
+$checked_salaries = '';
+if (!empty($current_include_unpaid_salaries) && $current_include_unpaid_salaries == '1') {
+    $checked_salaries = ' checked="checked"';
+}
+
+print '<input type="checkbox" name="SIG_INCLUDE_UNPAID_SALARIES" value="1"'.$checked_salaries.' class="flat">';
+print '</td>';
+print '<td>'.$langs->trans("SigIncludeUnpaidSalariesHelp").'</td>';
+print '</tr>';
+
 print '</table>';
 
 print '<br>';
@@ -318,6 +342,11 @@ print '<p><strong>'.$langs->trans("SigIncludeSignedQuotes").' :</strong> '.$incl
 $current_include_customer_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_INVOICES');
 $include_customer_status = (!empty($current_include_customer_invoices) && $current_include_customer_invoices == '1') ? $langs->trans("Yes") : $langs->trans("No");
 print '<p><strong>'.$langs->trans("SigIncludeCustomerInvoices").' :</strong> '.$include_customer_status.'</p>';
+
+// Afficher la configuration de l'inclusion des salaires impayés
+$current_include_unpaid_salaries = getDolGlobalString('SIG_INCLUDE_UNPAID_SALARIES');
+$include_salaries_status = (!empty($current_include_unpaid_salaries) && $current_include_unpaid_salaries == '1') ? $langs->trans("Yes") : $langs->trans("No");
+print '<p><strong>'.$langs->trans("SigIncludeUnpaidSalaries").' :</strong> '.$include_salaries_status.'</p>';
 
 print '</div>';
 

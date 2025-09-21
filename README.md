@@ -8,9 +8,11 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui perme
 
 ### 📊 Tableau de trésorerie prévisionnel
 - **Vue mensuelle** : Affichage mois par mois des mouvements de trésorerie
+- **Graphique interactif** : Visualisation de l'évolution des soldes de fin de mois avec Chart.js
+- **Données exactes** : Pour les mois écoulés, utilisation des données réelles du module banque Dolibarr
 - **Calcul automatique** : Solde fin théorique basé sur les encaissements et décaissements prévus
 - **Totaux annuels** : Synthèse des mouvements de l'année
-- **Interface responsive** : Tableau adaptatif avec couleurs et indicateurs
+- **Interface épurée** : Page focalisée sur l'essentiel, suppression des sections redondantes
 
 ### ⚙️ Configuration avancée
 - **Compte bancaire** : Sélection du compte bancaire à analyser
@@ -66,6 +68,7 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui perme
 ### Options d'inclusion
 - **Factures fournisseurs** : Inclure/exclure les factures fournisseurs
 - **Charges sociales** : Inclure/exclure les charges sociales
+- **Salaires impayés** : Inclure/exclure les salaires impayés dans les décaissements
 - **Devis signés** : Inclure/exclure les devis signés
 - **Factures client** : Inclure/exclure les factures client impayées
 
@@ -118,6 +121,7 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui perme
 - **Factures client** : Table `llx_facture` (statut = 1)
 - **Factures fournisseurs** : Table `llx_facture_fourn` (statut = 1)
 - **Charges sociales** : Table `llx_chargesociales` et module Sociales
+- **Salaires impayés** : Table `llx_salary` avec `paye = 0` et `dateep` pour la répartition mensuelle
 
 ### Calculs automatiques
 - **Solde fin théorique** : Solde début + Encaissements - Décaissements + Prévisions
@@ -131,6 +135,12 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui perme
 - **Filtres d'entité** : Respect des filtres d'entité Dolibarr
 
 ## 📝 Changelog
+
+### Version 0.35 (2025-09-21)
+- ✅ **Gestion des salaires impayés** : Ajout d'une option pour inclure les salaires impayés dans les décaissements
+- ✅ **Fonction optimisée** : Requête propre utilisant `paye = 0` et `dateep` pour la répartition mensuelle
+- ✅ **Affichage amélioré** : Code couleur violet pour les salaires impayés dans les décaissements
+- ✅ **Configuration** : Option "Inclure les salaires impayés" dans la section Trésorerie
 
 ### Version 0.3 (2025-01-XX)
 - ✅ Configuration avancée avec 4 options d'inclusion
@@ -187,6 +197,23 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui perme
 
 Ce module est développé pour Dolibarr et respecte la licence GPL v3.
 
+## 🆕 Nouveautés version 0.4
+
+### 📈 Graphique interactif
+- **Visualisation moderne** : Graphique Chart.js de l'évolution des soldes
+- **Interactivité** : Survol pour voir les valeurs exactes
+- **Design responsive** : Adaptation à tous les écrans
+
+### 🎯 Interface épurée
+- **Suppression des redondances** : Sections CA déplacées vers leur page dédiée
+- **Focus sur l'essentiel** : Page concentrée sur la trésorerie uniquement
+- **Meilleure lisibilité** : Interface simplifiée et plus claire
+
+### ⚡ Données optimisées
+- **Mois écoulés** : Données exactes du module banque Dolibarr
+- **Logique corrigée** : Prise en compte des factures arrivant à échéance dans le mois en cours
+- **Roll-over intelligent** : Report des retards au mois actuel
+
 ## 👥 Contribution
 
 Les contributions sont les bienvenues ! N'hésitez pas à :
@@ -197,4 +224,4 @@ Les contributions sont les bienvenues ! N'hésitez pas à :
 
 ---
 
-**Module SIG v0.3** - Pilotage de trésorerie et SIG pour Dolibarr
+**Module SIG v0.4** - Pilotage de trésorerie et SIG pour Dolibarr

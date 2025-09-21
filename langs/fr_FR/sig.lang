@@ -35,3 +35,5 @@ SigIncludeSignedQuotes=Inclure les devis signés
 SigIncludeSignedQuotesHelp=Cocher pour inclure les devis signés dans les encaissements à venir (marge avec délai de paiement). Décocher pour les exclure.
 SigIncludeCustomerInvoices=Inclure les factures client impayées
 SigIncludeCustomerInvoicesHelp=Cocher pour inclure les factures client impayées dans les encaissements à venir (basé sur la date de règlement prévue). Décocher pour les exclure.
+SigIncludeUnpaidSalaries=Inclure les salaires impayés
+SigIncludeUnpaidSalariesHelp=Cocher pour inclure les salaires impayés dans les décaissements à venir (basé sur la date de paiement prévue). Décocher pour les exclure.

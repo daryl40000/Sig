@@ -21,7 +21,7 @@ $this->family = 'financial';
 $this->name = 'sig';
 $this->description = 'Pilotage de trésorerie et Solde Intermédiaire de Gestion';
 		// Module version
-		$this->version = '0.3';
+		$this->version = '0.4';
 $this->const_name = 'MAIN_MODULE_SIG';
 $this->picto = 'fa-tachometer-alt'; // Icône tableau de bord / pilotage
 
