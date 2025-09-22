@@ -195,6 +195,11 @@ if ($selected_bank_account > 0) {
         $mois_labels[] = dol_print_date(dol_mktime(0, 0, 0, $month, 1, $year), '%b %Y');
         $soldes_data[] = round($solde_fin_mois, 2);
         
+        // Marquer l'index du mois en cours pour les projections
+        if ($year == $current_year && $month == $current_month) {
+            $current_month_index = count($soldes_data) - 1;
+        }
+        
         $total_encaissements += $encaissements_mois;
         $total_decaissements += $decaissements_mois;
         $total_salaires_impayes_annee += $salaires_impayes_mois;
@@ -442,41 +447,222 @@ if ($selected_bank_account > 0) {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
     const ctx = document.getElementById('tresorerieChart').getContext('2d');
+    
+    // Préparer les données
+    const soldesData = <?php echo json_encode($soldes_data); ?>;
+    const labels = <?php echo json_encode($mois_labels); ?>;
+    const currentMonthIndex = <?php echo isset($current_month_index) ? $current_month_index : -1; ?>;
+    const currentYear = <?php echo $current_year; ?>;
+    const selectedYear = <?php echo $year; ?>;
+    
+    // Créer des datasets séparés pour les zones positive et négative
+    const positiveData = soldesData.map(value => value >= 0 ? value : 0);
+    const negativeData = soldesData.map(value => value < 0 ? value : 0);
+    
+    // Créer les données de projection (seulement si on est dans l'année en cours)
+    let projectionOptimiste = [];
+    let projectionPessimiste = [];
+    
+    if (selectedYear >= currentYear && currentMonthIndex >= 0) {
+        // Partir du solde du mois en cours
+        const baseSolde = soldesData[currentMonthIndex];
+        
+        // Variables pour stocker les soldes calculés mois par mois
+        let soldeOptimistePrecedent = baseSolde;
+        let soldePessimistePrecedent = baseSolde;
+        
+        // Créer les projections à partir du mois en cours
+        for (let i = 0; i < soldesData.length; i++) {
+            if (i < currentMonthIndex) {
+                // Avant le mois en cours : pas de projection
+                projectionOptimiste.push(null);
+                projectionPessimiste.push(null);
+            } else if (i === currentMonthIndex) {
+                // Mois en cours : même valeur pour les trois courbes (point de départ)
+                projectionOptimiste.push(soldesData[i]);
+                projectionPessimiste.push(soldesData[i]);
+            } else {
+                // Après le mois en cours : projections avec divergence cumulative
+                const moisDepuisCurrent = i - currentMonthIndex;
+                
+                // Calcul de l'incertitude : valeur configurable qui augmente linéairement
+                // Mois 1: ±valeur€, Mois 2: ±(valeur*2)€, Mois 3: ±(valeur*3)€, etc.
+                const incertitudeBase = <?php echo getDolGlobalInt('SIG_PROJECTION_UNCERTAINTY', 1000); ?>; // Valeur de base configurée
+                const incertitudeCeMois = incertitudeBase * moisDepuisCurrent;
+                
+                // Prendre le solde réel de ce mois comme base
+                const soldeReelCeMois = soldesData[i];
+                
+                // Calculer les nouveaux soldes : solde réel ± incertitude cumulative
+                soldeOptimistePrecedent = soldeReelCeMois + incertitudeCeMois;
+                soldePessimistePrecedent = soldeReelCeMois - incertitudeCeMois;
+                
+                // Ajouter aux données de projection
+                projectionOptimiste.push(soldeOptimistePrecedent);
+                projectionPessimiste.push(soldePessimistePrecedent);
+            }
+        }
+    }
+    
     const tresorerieChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: <?php echo json_encode($mois_labels); ?>,
-            datasets: [{
-                label: 'Solde de fin de mois (€)',
-                data: <?php echo json_encode($soldes_data); ?>,
-                borderColor: '#2196F3',
-                backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#2196F3',
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            }]
+            labels: labels,
+            datasets: [
+                // Dataset pour la zone positive (verte)
+                {
+                    label: 'Zone positive',
+                    data: positiveData,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(76, 175, 80, 0.3)', // Vert transparent
+                    fill: {
+                        target: 'origin', // Remplir jusqu'à zéro
+                        above: 'rgba(76, 175, 80, 0.3)'
+                    },
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    tension: 0.4,
+                    order: 2
+                },
+                // Dataset pour la zone négative (rouge)
+                {
+                    label: 'Zone négative',
+                    data: negativeData,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(244, 67, 54, 0.3)', // Rouge transparent
+                    fill: {
+                        target: 'origin', // Remplir jusqu'à zéro
+                        below: 'rgba(244, 67, 54, 0.3)'
+                    },
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    tension: 0.4,
+                    order: 2
+                },
+                // Dataset principal pour la ligne bleue
+                {
+                    label: 'Solde de fin de mois (€)',
+                    data: soldesData,
+                    borderColor: '#2196F3', // Bleu comme avant
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    fill: false, // Pas de remplissage pour cette ligne
+                    tension: 0.4,
+                    pointBackgroundColor: '#2196F3',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    order: 1 // Au premier plan
+                },
+                // Dataset pour la projection optimiste (ligne pointillée verte)
+                {
+                    label: 'Projection optimiste',
+                    data: projectionOptimiste,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [10, 5], // Ligne pointillée
+                    fill: false,
+                    tension: 0.4,
+                    pointBackgroundColor: '#4CAF50',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    order: 3,
+                    hidden: selectedYear < currentYear // Masquer si année passée
+                },
+                // Dataset pour la projection pessimiste (ligne pointillée rouge)
+                {
+                    label: 'Projection pessimiste',
+                    data: projectionPessimiste,
+                    borderColor: '#F44336',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [10, 5], // Ligne pointillée
+                    fill: false,
+                    tension: 0.4,
+                    pointBackgroundColor: '#F44336',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    order: 3,
+                    hidden: selectedYear < currentYear // Masquer si année passée
+                },
+                // Zone d'incertitude entre les projections
+                {
+                    label: 'Zone d\'incertitude',
+                    data: projectionOptimiste,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)', // Jaune très transparent
+                    fill: {
+                        target: 4, // Remplir jusqu'au dataset pessimiste (index 4)
+                        above: 'rgba(255, 193, 7, 0.1)'
+                    },
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    tension: 0.4,
+                    order: 4,
+                    hidden: selectedYear < currentYear // Masquer si année passée
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Évolution des Soldes de Fin de Mois - <?php echo $year; ?>',
-                    font: {
-                        size: 16,
-                        weight: 'bold'
+                            plugins: {
+                    title: {
+                        display: true,
+                        text: 'Évolution des Soldes de Fin de Mois - <?php echo $year; ?>',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            filter: function(item, chart) {
+                                // Afficher toutes les lignes sauf les zones de remplissage
+                                return !item.text.includes('Zone');
+                            }
+                        }
+                    },
+                    tooltip: {
+                        filter: function(tooltipItem) {
+                            // Afficher les tooltips pour toutes les lignes sauf les zones de remplissage
+                            return tooltipItem.datasetIndex >= 2;
+                        },
+                        callbacks: {
+                            title: function(context) {
+                                return context[0].label;
+                            },
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('fr-FR', {
+                                        style: 'currency',
+                                        currency: 'EUR',
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0
+                                    }).format(context.parsed.y);
+                                    
+                                    // Ajouter une indication pour les projections
+                                    if (context.dataset.label.includes('Projection')) {
+                                        label += ' (estimation)';
+                                    }
+                                }
+                                return label;
+                            }
+                        }
                     }
                 },
-                legend: {
-                    display: false
-                }
-            },
             scales: {
                 y: {
                     beginAtZero: false,
@@ -488,10 +674,18 @@ if ($selected_bank_account > 0) {
                                 minimumFractionDigits: 0,
                                 maximumFractionDigits: 0
                             }).format(value);
+                        },
+                        color: function(context) {
+                            return context.tick.value === 0 ? '#666666' : '#666666';
                         }
                     },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
+                        color: function(context) {
+                            return context.tick.value === 0 ? '#666666' : 'rgba(0, 0, 0, 0.1)';
+                        },
+                        lineWidth: function(context) {
+                            return context.tick.value === 0 ? 2 : 1;
+                        }
                     }
                 },
                 x: {
@@ -503,6 +697,35 @@ if ($selected_bank_account > 0) {
             elements: {
                 point: {
                     hoverBackgroundColor: '#1976D2'
+                }
+            },
+            plugins: {
+                // Ajouter une ligne verticale au mois en cours
+                afterDraw: function(chart) {
+                    if (currentMonthIndex >= 0 && selectedYear >= currentYear) {
+                        const ctx = chart.ctx;
+                        const xAxis = chart.scales.x;
+                        const yAxis = chart.scales.y;
+                        
+                        // Position x du mois en cours
+                        const xPos = xAxis.getPixelForValue(currentMonthIndex);
+                        
+                        ctx.save();
+                        ctx.strokeStyle = '#FF9800'; // Orange
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        ctx.moveTo(xPos, yAxis.top);
+                        ctx.lineTo(xPos, yAxis.bottom);
+                        ctx.stroke();
+                        
+                        // Ajouter un label
+                        ctx.fillStyle = '#FF9800';
+                        ctx.font = '12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('Mois actuel', xPos, yAxis.top - 5);
+                        ctx.restore();
+                    }
                 }
             },
             interaction: {

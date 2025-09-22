@@ -71,6 +71,12 @@ if ($action == 'setvalue' && $user->admin) {
         $include_customer_template_invoices = 0;
     }
     
+    // Gestion de la valeur d'incertitude pour les projections
+    $projection_uncertainty = GETPOSTINT('SIG_PROJECTION_UNCERTAINTY');
+    if (empty($projection_uncertainty) || $projection_uncertainty < 0) {
+        $projection_uncertainty = 1000; // Valeur par défaut
+    }
+    
     $result1 = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
     $result2 = dolibarr_set_const($db, 'SIG_MARGIN_RATE', $margin_rate, 'chaine', 0, '', $conf->entity);
     $result3 = dolibarr_set_const($db, 'SIG_PAYMENT_DELAY', $payment_delay, 'chaine', 0, '', $conf->entity);
@@ -80,13 +86,44 @@ if ($action == 'setvalue' && $user->admin) {
     $result7 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_INVOICES', $include_customer_invoices, 'yesno', 0, '', $conf->entity);
     $result8 = dolibarr_set_const($db, 'SIG_INCLUDE_UNPAID_SALARIES', $include_unpaid_salaries, 'yesno', 0, '', $conf->entity);
     $result9 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES', $include_customer_template_invoices, 'yesno', 0, '', $conf->entity);
+    $result10 = dolibarr_set_const($db, 'SIG_PROJECTION_UNCERTAINTY', $projection_uncertainty, 'chaine', 0, '', $conf->entity);
     
-    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0 && $result8 > 0 && $result9 > 0) {
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0 && $result8 > 0 && $result9 > 0 && $result10 > 0) {
         $db->commit();
         setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     } else {
         $db->rollback();
         setEventMessages($langs->trans("Error"), null, 'errors');
+    }
+}
+
+if ($action == 'save_manual_ca' && $user->admin) {
+    $db->begin();
+    
+    $manual_year = GETPOSTINT('manual_year');
+    if ($manual_year > 0) {
+        // Récupérer les données des 12 mois
+        $ca_data = array();
+        for ($m = 1; $m <= 12; $m++) {
+            $ca_month = GETPOST('ca_month_'.$m, 'alphanohtml');
+            if (!empty($ca_month) && is_numeric($ca_month)) {
+                $ca_data[(string)$m] = (float) $ca_month;
+            }
+        }
+        
+        // Sauvegarder en JSON
+        $config_key = 'SIG_MANUAL_CA_'.$manual_year;
+        $json_data = json_encode($ca_data);
+        
+        $result = dolibarr_set_const($db, $config_key, $json_data, 'chaine', 0, '', $conf->entity);
+        
+        if ($result > 0) {
+            $db->commit();
+            setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+        } else {
+            $db->rollback();
+            setEventMessages($langs->trans("Error"), null, 'errors');
+        }
     }
 }
 
@@ -291,6 +328,74 @@ if (!empty($current_include_customer_template_invoices) && $current_include_cust
 print '<input type="checkbox" name="SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES" value="1"'.$checked_template.' class="flat">';
 print '</td>';
 print '<td>'.$langs->trans("SigIncludeCustomerTemplateInvoicesHelp").'</td>';
+print '</tr>';
+
+// Configuration de l'incertitude pour les projections
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigProjectionUncertainty").'</td>';
+print '<td>';
+
+$current_uncertainty = getDolGlobalString('SIG_PROJECTION_UNCERTAINTY');
+if (empty($current_uncertainty)) $current_uncertainty = '1000'; // Valeur par défaut 1000€
+
+print '<input type="number" name="SIG_PROJECTION_UNCERTAINTY" value="'.$current_uncertainty.'" min="0" max="100000" step="100" class="flat" style="width: 100px;"> €';
+print '</td>';
+print '<td>'.$langs->trans("SigProjectionUncertaintyHelp").'</td>';
+print '</tr>';
+
+print '</table>';
+
+print '<br>';
+print '<div class="center">';
+print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
+print '</div>';
+
+print '</form>';
+
+// Section pour la saisie manuelle des CA des années précédentes
+print '<br>';
+print '<h3>'.$langs->trans("SigManualTurnoverSection").'</h3>';
+
+// Formulaire pour saisir les données de l'année précédente
+$current_year = (int) date('Y');
+$previous_year = $current_year - 1;
+
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'" id="manual_ca_form">';
+print '<input type="hidden" name="action" value="save_manual_ca">';
+print '<input type="hidden" name="manual_year" value="'.$previous_year.'">';
+
+print '<p>'.$langs->trans("SigManualTurnoverHelp", $previous_year).'</p>';
+
+print '<table class="noborder" width="100%">';
+print '<tr class="liste_titre">';
+print '<td colspan="13">'.$langs->trans("SigManualTurnoverTitle", $previous_year).'</td>';
+print '</tr>';
+
+print '<tr class="liste_titre">';
+print '<td>Mois</td>';
+for ($m = 1; $m <= 12; $m++) {
+    print '<td style="text-align:center">'.dol_print_date(dol_mktime(12, 0, 0, $m, 1, $previous_year), '%b').'</td>';
+}
+print '</tr>';
+
+print '<tr>';
+print '<td><strong>CA '.$previous_year.' (€)</strong></td>';
+
+// Récupérer les données existantes
+$config_key = 'SIG_MANUAL_CA_'.$previous_year;
+$existing_data = getDolGlobalString($config_key);
+$data_array = array();
+if (!empty($existing_data)) {
+    $data_array = json_decode($existing_data, true);
+    if (!is_array($data_array)) {
+        $data_array = array();
+    }
+}
+
+for ($m = 1; $m <= 12; $m++) {
+    $value = isset($data_array[(string)$m]) ? $data_array[(string)$m] : '';
+    print '<td><input type="number" name="ca_month_'.$m.'" value="'.$value.'" min="0" step="0.01" class="flat" style="width: 80px; text-align: right;"></td>';
+}
 print '</tr>';
 
 print '</table>';

@@ -1,10 +1,24 @@
-# Module SIG - Pilotage de trésorerie et SIG
+# Module SIG - Pilotage de trésorerie et SIG (Version 0.6)
 
 ## 📋 Description
 
-Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui permet de piloter la trésorerie de l'entreprise avec une vision prévisionnelle basée sur les devis signés, les factures client impayées, les factures fournisseurs et les charges sociales.
+Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr avancé qui permet de piloter la trésorerie de l'entreprise avec une **vision prévisionnelle et comparative**. Il intègre des **projections d'incertitude**, une **comparaison historique** et une analyse basée sur les devis signés, factures client impayées, factures fournisseurs et charges sociales.
 
 ## 🎯 Fonctionnalités principales
+
+### 🚀 **Nouveautés Version 0.6**
+
+#### 📈 **Projections de trésorerie avec zone d'incertitude**
+- **Zones colorées** : Visualisation automatique des zones positives (vert) et négatives (rouge)
+- **Courbes de projection** : Projections optimiste et pessimiste à partir du mois en cours
+- **Incertitude configurable** : Paramétrage de l'incertitude (défaut: 1000€/mois)
+- **Zone d'incertitude** : Visualisation de la fourchette prévisionnelle
+
+#### 📊 **Comparaison historique**
+- **Ligne CA N-1** : Affichage automatique de l'année précédente
+- **Ligne de différence** : Calcul et colorisation des écarts mois par mois
+- **Saisie manuelle** : Interface pour saisir les CA des années sans données Dolibarr
+- **Graphique comparatif** : Courbes de comparaison année courante vs précédente
 
 ### 📊 Tableau de trésorerie prévisionnel
 - **Vue mensuelle** : Affichage mois par mois des mouvements de trésorerie
@@ -44,14 +58,6 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui perme
 - **Impact** : Ajoute les factures client impayées dans les encaissements
 - **Constante** : `SIG_INCLUDE_CUSTOMER_INVOICES`
 - **Critères** : Basé sur la date de règlement prévue (`date_lim_reglement`)
-
-#### 5. Inclure les factures modèle client
-- **Description** : Inclut les factures modèle client (récurrentes) dans les encaissements prévisionnels
-- **Impact** : Ajoute la marge des factures récurrentes selon leur fréquence
-- **Constante** : `SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES`
-- **Calcul** : Montant HT × Taux de marge configuré
-- **Fréquences supportées** : Mensuelle, trimestrielle, semestrielle, annuelle
-- **Logique** : Marge comptée le mois de génération de la facture
 
 ## 🚀 Installation
 
@@ -103,7 +109,6 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui perme
 - **Rouge** : Montants négatifs (décaissements, variations négatives)
 - **Bleu** : Factures client impayées
 - **Vert clair** : Marge prévue des devis signés
-- **Orange** : Factures modèle client (récurrentes)
 
 ### Scénarios d'utilisation
 
@@ -132,13 +137,11 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr qui perme
 - **Factures fournisseurs** : Table `llx_facture_fourn` (statut = 1)
 - **Charges sociales** : Table `llx_chargesociales` et module Sociales
 - **Salaires impayés** : Table `llx_salary` avec `paye = 0` et `dateep` pour la répartition mensuelle
-- **Factures modèle client** : Table `llx_facture_rec` avec gestion de la fréquence de récurrence
 
 ### Calculs automatiques
 - **Solde fin théorique** : Solde début + Encaissements - Décaissements + Prévisions
 - **Marge prévue** : CA prévu × Taux de marge configuré
 - **Marge avec délai** : Marge des livraisons qui seront payées ce mois-ci
-- **Marge factures modèle** : Montant HT × Taux de marge selon la fréquence de récurrence
 - **Totaux annuels** : Somme des mouvements de l'année
 
 ### Performance

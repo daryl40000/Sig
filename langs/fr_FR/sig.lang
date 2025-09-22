@@ -39,3 +39,8 @@ SigIncludeUnpaidSalaries=Inclure les salaires impayés
 SigIncludeUnpaidSalariesHelp=Cocher pour inclure les salaires impayés dans les décaissements à venir (basé sur la date de paiement prévue). Décocher pour les exclure.
 SigIncludeCustomerTemplateInvoices=Inclure les factures modèle client
 SigIncludeCustomerTemplateInvoicesHelp=Cocher pour inclure les factures modèle client (récurrentes) dans les encaissements à venir. Décocher pour les exclure.
+SigProjectionUncertainty=Incertitude des projections
+SigProjectionUncertaintyHelp=Montant en euros de l'incertitude qui s'ajoute chaque mois aux projections de trésorerie (ex: 1000€ = ±1000€ le 1er mois, ±2000€ le 2ème mois, etc.)
+SigManualTurnoverSection=Saisie manuelle des CA des années précédentes
+SigManualTurnoverTitle=Chiffre d'affaires manuel pour %s
+SigManualTurnoverHelp=Si vous n'avez pas de données dans Dolibarr pour l'année %s, vous pouvez saisir manuellement les montants mensuels pour l'affichage comparatif.

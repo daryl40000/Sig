@@ -128,40 +128,219 @@ for ($m = 1; $m <= 12; $m++) {
 print '<td style="text-align:right; padding:8px; font-weight: bold; background-color: #fff3e0; border: 2px solid #FF9800;">'.price($total_global).'</td>';
 print '</tr>';
 
-print '</table>';
-print '</div>';
-
-print '<br /><br />';
-
-// SECTION 3: Liste détaillée des devis signés
-print load_fiche_titre('Liste des devis signés', '', 'generic');
-
-print '<div class="div-table-responsive">';
-print '<table class="noborder" width="100%">';
-print '<tr class="liste_titre">';
-print '<th class="center">' . $langs->trans('Ref') . '</th>';
-print '<th class="center">' . $langs->trans('Date') . '</th>';
-print '<th class="center">' . $langs->trans('ThirdParty') . '</th>';
-print '<th class="right">' . $langs->trans('TotalHT') . '</th>';
+// Ligne CA Année N-1 (année précédente)
+$year_previous = $year - 1;
+print '<tr style="border-top: 1px solid #ccc; background-color: #fafafa;">';
+print '<td style="font-weight: bold; color: #666; font-style: italic;">CA '.$year_previous.' (référence)</td>';
+$total_previous_year = 0;
+for ($m = 1; $m <= 12; $m++) {
+	// Essayer de récupérer les données réelles de l'année précédente
+	$total_ht_previous = sig_get_turnover_for_month($db, $year_previous, $m);
+	
+	// Si pas de données réelles, utiliser les données manuelles de configuration
+	if ($total_ht_previous == 0) {
+		$total_ht_previous = sig_get_manual_turnover_for_month($year_previous, $m);
+	}
+	
+	$total_previous_year += $total_ht_previous;
+	$cell_style = $total_ht_previous > 0 ? 'background-color: #f8f8f8;' : '';
+	print '<td style="text-align:right; padding:8px; color: #666; font-style: italic; '.$cell_style.'">'.price($total_ht_previous).'</td>';
+}
+print '<td style="text-align:right; padding:8px; font-weight: bold; background-color: #f8f8f8; color: #666; font-style: italic;">'.price($total_previous_year).'</td>';
 print '</tr>';
 
-$propals = sig_get_signed_propals($db, $year);
+// Ligne Différence (Année N - Année N-1)
+print '<tr style="border-top: 2px solid #333; background-color: #f0f0f0;">';
+print '<td style="font-weight: bold; color: #333;">Différence ('.$year.' - '.$year_previous.')</td>';
+$total_difference = 0;
+$monthly_current_data = array(); // Pour le graphique
+$monthly_previous_data = array(); // Pour le graphique
+$monthly_labels = array(); // Pour le graphique
 
-if (empty($propals)) {
-    print '<tr><td colspan="4" class="center">' . $langs->trans('NoDataFound') . '</td></tr>';
-} else {
-    foreach ($propals as $propal) {
-        print '<tr>';
-        print '<td class="center">' . $propal->ref . '</td>';
-        print '<td class="center">' . dol_print_date($propal->datep, 'day') . '</td>';
-        print '<td class="center">' . ($propal->nom_client ?: 'N/A') . '</td>';
-        print '<td class="right">' . price($propal->total_ht) . '</td>';
-        print '</tr>';
-    }
+for ($m = 1; $m <= 12; $m++) {
+	// Récupérer les données de l'année actuelle
+	$total_ht_current_realise = sig_get_turnover_for_month($db, $year, $m);
+	$total_ht_current_prevu = sig_get_expected_turnover_for_month($db, $year, $m);
+	$total_current_month = $total_ht_current_realise + $total_ht_current_prevu;
+	
+	// Récupérer les données de l'année précédente
+	$total_ht_previous = sig_get_turnover_for_month($db, $year_previous, $m);
+	if ($total_ht_previous == 0) {
+		$total_ht_previous = sig_get_manual_turnover_for_month($year_previous, $m);
+	}
+	
+	// Calculer la différence
+	$difference_month = $total_current_month - $total_ht_previous;
+	$total_difference += $difference_month;
+	
+	// Stocker pour le graphique
+	$monthly_current_data[] = round($total_current_month, 2);
+	$monthly_previous_data[] = round($total_ht_previous, 2);
+	$monthly_labels[] = dol_print_date(dol_mktime(0, 0, 0, $m, 1, $year), '%b');
+	
+	// Style selon la différence
+	$cell_style = '';
+	$text_color = '#333';
+	if ($difference_month > 0) {
+		$cell_style = 'background-color: #e8f5e8; border-left: 3px solid #4CAF50;';
+		$text_color = '#2E7D32';
+	} elseif ($difference_month < 0) {
+		$cell_style = 'background-color: #ffebee; border-left: 3px solid #F44336;';
+		$text_color = '#C62828';
+	}
+	
+	print '<td style="text-align:right; padding:8px; font-weight: bold; color: '.$text_color.'; '.$cell_style.'">'.price($difference_month).'</td>';
 }
+
+// Style du total selon la différence globale
+$total_cell_style = '';
+$total_text_color = '#333';
+if ($total_difference > 0) {
+	$total_cell_style = 'background-color: #c8e6c9; border: 2px solid #4CAF50;';
+	$total_text_color = '#1B5E20';
+} elseif ($total_difference < 0) {
+	$total_cell_style = 'background-color: #ffcdd2; border: 2px solid #F44336;';
+	$total_text_color = '#B71C1C';
+}
+
+print '<td style="text-align:right; padding:8px; font-weight: bold; color: '.$total_text_color.'; '.$total_cell_style.'">'.price($total_difference).'</td>';
+print '</tr>';
 
 print '</table>';
 print '</div>';
+
+// GRAPHIQUE COMPARATIF
+print '<br>';
+print load_fiche_titre('Comparaison '.$year.' vs '.$year_previous, '', 'fa-chart-line');
+
+print '<div style="margin-bottom: 30px; height: 400px;">';
+print '<canvas id="comparisonChart"></canvas>';
+print '</div>';
+
+// Script JavaScript pour le graphique comparatif
+?>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Vérifier que Chart.js est chargé et que l'élément existe
+document.addEventListener('DOMContentLoaded', function() {
+    const canvasElement = document.getElementById('comparisonChart');
+    if (!canvasElement) {
+        console.error('Canvas comparisonChart non trouvé');
+        return;
+    }
+    
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js non chargé');
+        return;
+    }
+    
+    const ctxComparison = canvasElement.getContext('2d');
+    const comparisonChart = new Chart(ctxComparison, {
+    type: 'line',
+    data: {
+        labels: <?php echo json_encode($monthly_labels); ?>,
+        datasets: [
+            {
+                label: 'CA <?php echo $year; ?> (Réalisé + Prévu)',
+                data: <?php echo json_encode($monthly_current_data); ?>,
+                borderColor: '#2196F3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                borderWidth: 3,
+                fill: false,
+                tension: 0.4,
+                pointBackgroundColor: '#2196F3',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'CA <?php echo $year_previous; ?> (Référence)',
+                data: <?php echo json_encode($monthly_previous_data); ?>,
+                borderColor: '#666666',
+                backgroundColor: 'rgba(102, 102, 102, 0.1)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false,
+                tension: 0.4,
+                pointBackgroundColor: '#666666',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Évolution comparative du chiffre d\'affaires',
+                font: {
+                    size: 16,
+                    weight: 'bold'
+                }
+            },
+            legend: {
+                display: true,
+                position: 'bottom'
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        label += new Intl.NumberFormat('fr-FR', {
+                            style: 'currency',
+                            currency: 'EUR',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                        }).format(context.parsed.y);
+                        return label;
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    callback: function(value, index, values) {
+                        return new Intl.NumberFormat('fr-FR', {
+                            style: 'currency',
+                            currency: 'EUR',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                        }).format(value);
+                    }
+                },
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.1)'
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                }
+            }
+        },
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        }
+    }
+});
+});
+</script>
+<?php
+
+
 
 llxFooter();
 $db->close();
@@ -220,6 +399,32 @@ function sig_get_total_expected_turnover_for_year(DoliDB $db, int $year): float
 	}
 	
 	return (float) $total;
+}
+
+/**
+ * Retourne le CA HT manuel pour un mois et une année donnés (données de configuration).
+ *
+ * @param int $year
+ * @param int $month
+ * @return float
+ */
+function sig_get_manual_turnover_for_month(int $year, int $month): float
+{
+	// Récupérer la configuration pour cette année
+	$config_key = 'SIG_MANUAL_CA_'.$year;
+	$manual_data = getDolGlobalString($config_key);
+	
+	if (empty($manual_data)) {
+		return 0.0;
+	}
+	
+	// Les données sont stockées sous format JSON : {"1": 1000, "2": 1500, ...}
+	$data_array = json_decode($manual_data, true);
+	if (!is_array($data_array) || !isset($data_array[(string)$month])) {
+		return 0.0;
+	}
+	
+	return (float) $data_array[(string)$month];
 }
 
 /**
@@ -306,43 +511,7 @@ function sig_get_expected_turnover_for_month(DoliDB $db, int $year, int $month):
 	return (float) $total;
 }
 
-/**
- * Retourne la liste des devis signés pour une année donnée.
- *
- * @param DoliDB $db
- * @param int $year
- * @return array Tableau d'objets propal
- */
-function sig_get_signed_propals(DoliDB $db, int $year): array
-{
-	global $conf;
 
-	// Calcul des timestamps (début et fin d'année)
-	$firstday_year_timestamp = dol_mktime(0, 0, 0, 1, 1, $year);
-	$lastday_year_timestamp = dol_mktime(23, 59, 59, 12, 31, $year);
-
-	$sql = 'SELECT p.rowid, p.ref, p.datep, p.total_ht, s.nom as nom_client';
-	$sql .= ' FROM '.MAIN_DB_PREFIX.'propal as p';
-	$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe as s ON p.fk_soc = s.rowid';
-	$sql .= ' WHERE p.entity IN ('.getEntity('propal', 1).')';
-	$sql .= ' AND p.fk_statut = 2'; // Statut 2 = Devis signé/accepté
-	$sql .= " AND p.datep BETWEEN '".$db->idate($firstday_year_timestamp)."' AND '".$db->idate($lastday_year_timestamp)."'";
-	$sql .= ' ORDER BY p.datep DESC';
-
-	$propals = array();
-	$resql = $db->query($sql);
-	if ($resql) {
-		$num = $db->num_rows($resql);
-		$i = 0;
-		while ($i < $num) {
-			$obj = $db->fetch_object($resql);
-			if ($obj) $propals[] = $obj;
-			$i++;
-		}
-		$db->free($resql);
-	}
-	return $propals;
-}
 
 /**
  * Fonction de diagnostic pour analyser les données de factures

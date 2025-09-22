@@ -1,5 +1,56 @@
 # Changelog - Module SIG
 
+## Version 0.6 (2025-09-22)
+
+### 🚀 **Fonctionnalités majeures : Projections de trésorerie et comparaison historique**
+
+#### 📈 **Projections de trésorerie avec zone d'incertitude**
+- ✅ **Zones colorées** : Colorisation automatique positive (vert) / négative (rouge) dans le graphique de trésorerie
+- ✅ **Courbes de projection** : Projections optimiste (verte) et pessimiste (rouge) à partir du mois en cours
+- ✅ **Zone d'incertitude** : Zone jaune transparente entre les projections
+- ✅ **Incertitude configurable** : Nouvelle option "Incertitude des projections" (défaut: 1000€)
+- ✅ **Progression linéaire** : ±1000€ le 1er mois, ±2000€ le 2ème mois, etc.
+
+#### 📊 **Comparaison historique avec année N-1**
+- ✅ **Ligne CA N-1** : Affichage automatique de l'année précédente dans le tableau
+- ✅ **Ligne de différence** : Calcul et colorisation des écarts (vert=amélioration, rouge=baisse)
+- ✅ **Saisie manuelle** : Interface pour saisir les CA des années précédentes si pas de données Dolibarr
+- ✅ **Graphique comparatif** : Nouveau graphique avec courbes année courante vs année précédente
+- ✅ **Logique intelligente** : Priorité aux données réelles, fallback sur données manuelles
+
+#### 🎨 **Optimisations interface**
+- ✅ **Page index épurée** : Suppression du tableau des devis signés (information redondante)
+- ✅ **Performance** : Réduction des requêtes SQL et optimisation du chargement
+
+### 🔧 **Améliorations techniques**
+
+#### Configuration
+- **Nouvelle constante** : `SIG_PROJECTION_UNCERTAINTY` (valeur d'incertitude)
+- **Stockage JSON** : `SIG_MANUAL_CA_[ANNÉE]` pour les données manuelles
+- **Interface admin** : Nouvelle section "Saisie manuelle des CA des années précédentes"
+
+#### Fonctions ajoutées
+- `sig_get_manual_turnover_for_month()` : Récupération des données manuelles
+- Gestion robuste des erreurs et validation des données
+
+#### JavaScript optimisé
+- **Gestion d'erreurs** : Vérifications de chargement Chart.js et existence des éléments
+- **Code allégé** : Simplification des fonctions dynamiques
+- **Performance** : Optimisation du rendu des graphiques
+
+### 🌐 **Traductions ajoutées**
+- `SigProjectionUncertainty` : Incertitude des projections
+- `SigManualTurnoverSection` : Saisie manuelle des CA des années précédentes
+- `SigManualTurnoverTitle` : Chiffre d'affaires manuel pour %s
+- `SigManualTurnoverHelp` : Texte d'aide pour la saisie manuelle
+
+### 📋 **Migration et compatibilité**
+- **Rétrocompatible** : Aucune modification de base de données requise
+- **Configuration automatique** : Valeurs par défaut pour les nouvelles options
+- **Données existantes** : Préservation complète des données actuelles
+
+---
+
 ## Version 0.5 (2025-09-21)
 
 ### 🚀 **Nouvelle fonctionnalité majeure : Factures modèle client**
