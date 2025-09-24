@@ -30,6 +30,14 @@ llxHeader('', 'Trésorerie - '.$langs->trans('SigDashboard'));
 
 print load_fiche_titre('Analyse de Trésorerie', '', 'fa-coins');
 
+// Menu de navigation
+print '<div class="tabBar" style="margin-bottom: 20px;">';
+print '<a class="tabTitle" style="color: #666; background: #fff; padding: 8px 15px; margin-right: 5px; text-decoration: none; border-radius: 3px; border: 1px solid #ddd;" href="index.php?year='.$year.'">🏠 Tableau de bord</a>';
+print '<a class="tabTitle" style="color: #666; background: #fff; padding: 8px 15px; margin-right: 5px; text-decoration: none; border-radius: 3px; border: 1px solid #ddd;" href="ca.php?year='.$year.'">📊 Pilotage CA</a>';
+print '<a class="tabTitle" style="color: #666; background: #f0f0f0; padding: 8px 15px; margin-right: 5px; text-decoration: none; border-radius: 3px;" href="'.$_SERVER['PHP_SELF'].'?year='.$year.'">💰 Trésorerie</a>';
+print '<a class="tabTitle" style="color: #666; background: #fff; padding: 8px 15px; margin-right: 5px; text-decoration: none; border-radius: 3px; border: 1px solid #ddd;" href="sig.php?year='.$year.'">📈 SIG</a>';
+print '</div>';
+
 print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'">';
 print $langs->trans('Year') . ': ';
 print '<input type="number" name="year" value="'.$year.'" min="2000" max="2100" /> ';
@@ -455,9 +463,8 @@ if ($selected_bank_account > 0) {
     const currentYear = <?php echo $current_year; ?>;
     const selectedYear = <?php echo $year; ?>;
     
-    // Créer des datasets séparés pour les zones positive et négative
-    const positiveData = soldesData.map(value => value >= 0 ? value : 0);
-    const negativeData = soldesData.map(value => value < 0 ? value : 0);
+    // Créer des datasets pour les zones avec une logique simplifiée
+    const zeroLine = new Array(soldesData.length).fill(0);
     
     // Créer les données de projection (seulement si on est dans l'année en cours)
     let projectionOptimiste = [];
@@ -509,44 +516,38 @@ if ($selected_bank_account > 0) {
         data: {
             labels: labels,
             datasets: [
-                // Dataset pour la zone positive (verte)
-                {
-                    label: 'Zone positive',
-                    data: positiveData,
-                    borderColor: 'transparent',
-                    backgroundColor: 'rgba(76, 175, 80, 0.3)', // Vert transparent
-                    fill: {
-                        target: 'origin', // Remplir jusqu'à zéro
-                        above: 'rgba(76, 175, 80, 0.3)'
-                    },
-                    pointRadius: 0,
-                    pointHoverRadius: 0,
-                    tension: 0.4,
-                    order: 2
-                },
-                // Dataset pour la zone négative (rouge)
-                {
-                    label: 'Zone négative',
-                    data: negativeData,
-                    borderColor: 'transparent',
-                    backgroundColor: 'rgba(244, 67, 54, 0.3)', // Rouge transparent
-                    fill: {
-                        target: 'origin', // Remplir jusqu'à zéro
-                        below: 'rgba(244, 67, 54, 0.3)'
-                    },
-                    pointRadius: 0,
-                    pointHoverRadius: 0,
-                    tension: 0.4,
-                    order: 2
-                },
-                // Dataset principal pour la ligne bleue
+                // Dataset principal avec remplissage conditionnel
                 {
                     label: 'Solde de fin de mois (€)',
                     data: soldesData,
                     borderColor: '#2196F3', // Bleu comme avant
-                    backgroundColor: 'transparent',
+                    backgroundColor: function(context) {
+                        const chart = context.chart;
+                        const {ctx, chartArea} = chart;
+                        if (!chartArea) return null;
+                        
+                        // Créer un gradient vertical
+                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        
+                        // Trouver la position de zéro sur l'axe Y
+                        const yScale = chart.scales.y;
+                        const zeroPixel = yScale.getPixelForValue(0);
+                        const topPixel = chartArea.top;
+                        const bottomPixel = chartArea.bottom;
+                        
+                        // Calculer les positions relatives pour le gradient
+                        const zeroPosition = (zeroPixel - topPixel) / (bottomPixel - topPixel);
+                        
+                        // Appliquer les couleurs selon la position par rapport à zéro
+                        gradient.addColorStop(0, 'rgba(76, 175, 80, 0.3)'); // Vert en haut (positif)
+                        gradient.addColorStop(Math.min(Math.max(zeroPosition, 0), 1), 'rgba(76, 175, 80, 0.1)'); // Transition à zéro
+                        gradient.addColorStop(Math.min(Math.max(zeroPosition, 0), 1), 'rgba(244, 67, 54, 0.1)'); // Transition à zéro
+                        gradient.addColorStop(1, 'rgba(244, 67, 54, 0.3)'); // Rouge en bas (négatif)
+                        
+                        return gradient;
+                    },
                     borderWidth: 3,
-                    fill: false, // Pas de remplissage pour cette ligne
+                    fill: 'origin', // Remplir jusqu'à zéro
                     tension: 0.4,
                     pointBackgroundColor: '#2196F3',
                     pointBorderColor: '#ffffff',
@@ -626,8 +627,8 @@ if ($selected_bank_account > 0) {
                         position: 'bottom',
                         labels: {
                             filter: function(item, chart) {
-                                // Afficher toutes les lignes sauf les zones de remplissage
-                                return !item.text.includes('Zone');
+                                // Afficher toutes les lignes sauf les zones de remplissage et la zone d'incertitude
+                                return !item.text.includes('Zone') && !item.text.includes('incertitude');
                             }
                         }
                     },

@@ -1,24 +1,37 @@
-# Module SIG - Pilotage de trésorerie et SIG (Version 0.6)
+# Module SIG - Pilotage de trésorerie et SIG (Version 0.8)
 
 ## 📋 Description
 
-Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr avancé qui permet de piloter la trésorerie de l'entreprise avec une **vision prévisionnelle et comparative**. Il intègre des **projections d'incertitude**, une **comparaison historique** et une analyse basée sur les devis signés, factures client impayées, factures fournisseurs et charges sociales.
+Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr complet qui offre un **cockpit de pilotage financier intégré**. Il combine un tableau de bord avec suivi d'objectifs, l'analyse du chiffre d'affaires, la gestion prévisionnelle de trésorerie avec projections d'incertitude, et l'analyse complète des **Soldes Intermédiaires de Gestion** pour une vision 360° de la performance d'entreprise.
 
 ## 🎯 Fonctionnalités principales
 
-### 🚀 **Nouveautés Version 0.6**
+### 🚀 **Nouveautés Version 0.8**
 
-#### 📈 **Projections de trésorerie avec zone d'incertitude**
-- **Zones colorées** : Visualisation automatique des zones positives (vert) et négatives (rouge)
-- **Courbes de projection** : Projections optimiste et pessimiste à partir du mois en cours
-- **Incertitude configurable** : Paramétrage de l'incertitude (défaut: 1000€/mois)
-- **Zone d'incertitude** : Visualisation de la fourchette prévisionnelle
+#### 🏠 **Tableau de bord avec suivi d'objectifs**
+- **Suivi mensuel** : CA réalisé vs objectifs avec écarts automatiques
+- **Saisie d'objectifs** : Interface simple pour définir les cibles mensuelles
+- **Indicateurs visuels** : Codes couleurs pour identifier rapidement les performances
+- **Taux de réalisation** : Pourcentage d'atteinte des objectifs en temps réel
+- **Sauvegarde persistante** : Objectifs conservés par année en base de données
 
-#### 📊 **Comparaison historique**
-- **Ligne CA N-1** : Affichage automatique de l'année précédente
-- **Ligne de différence** : Calcul et colorisation des écarts mois par mois
-- **Saisie manuelle** : Interface pour saisir les CA des années sans données Dolibarr
-- **Graphique comparatif** : Courbes de comparaison année courante vs précédente
+#### 🧭 **Navigation améliorée**
+- **Menu de gauche intégré** : "Tableau de bord" en première position
+- **Réorganisation des pages** : `index.php` → Tableau de bord, `ca.php` → Pilotage CA
+- **Architecture optimisée** : Fonctions communes dans `lib/sig_functions.php`
+
+### 🏆 **Fonctionnalités Version 0.7**
+
+#### 📊 **Page Soldes Intermédiaires de Gestion (SIG)**
+- **Tableau SIG complet** : 11 indicateurs clés du CA au résultat courant
+- **Calculs automatiques** : Marge commerciale, Valeur ajoutée, EBE, Résultat d'exploitation
+- **Ratios d'analyse** : 4 ratios clés avec seuils d'alerte visuels (vert/orange/rouge)
+- **Graphique interactif** : Visualisation en barres de tous les postes SIG
+
+#### ⚙️ **Configuration des charges sociales**
+- **Taux configurable** : Pourcentage de charges sociales appliqué aux salaires (défaut: 55%)
+- **Calcul automatique** : Charges sociales = Salaires × Taux configuré
+- **Interface d'administration** : Configuration native Dolibarr
 
 ### 📊 Tableau de trésorerie prévisionnel
 - **Vue mensuelle** : Affichage mois par mois des mouvements de trésorerie
@@ -150,6 +163,20 @@ Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr avancé q
 - **Filtres d'entité** : Respect des filtres d'entité Dolibarr
 
 ## 📝 Changelog
+
+### Version 0.8 (2025-09-24)
+- ✅ **Tableau de bord avec suivi d'objectifs** : Page d'accueil dédiée au suivi CA vs objectifs mensuels
+- ✅ **Saisie d'objectifs intégrée** : Interface simple pour définir et sauvegarder les cibles
+- ✅ **Indicateurs visuels avancés** : Écarts automatiques et taux de réalisation avec codes couleurs
+- ✅ **Navigation améliorée** : Nouveau menu "Tableau de bord" en première position
+- ✅ **Architecture modulaire** : Réorganisation des fichiers et fonctions communes
+- ✅ **Corrections techniques** : Gestion d'erreurs et inclusion des dépendances
+
+### Version 0.7 (2025-09-21)
+- ✅ **Page SIG complète** : 11 indicateurs des Soldes Intermédiaires de Gestion
+- ✅ **Graphique SIG interactif** : Visualisation en barres avec Chart.js
+- ✅ **Ratios d'analyse** : 4 ratios clés avec seuils d'alerte visuels
+- ✅ **Configuration charges sociales** : Taux configurable pour calcul automatique
 
 ### Version 0.35 (2025-09-21)
 - ✅ **Gestion des salaires impayés** : Ajout d'une option pour inclure les salaires impayés dans les décaissements

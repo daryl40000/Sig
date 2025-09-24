@@ -77,6 +77,18 @@ if ($action == 'setvalue' && $user->admin) {
         $projection_uncertainty = 1000; // Valeur par défaut
     }
     
+    // Gestion du taux de charges sociales
+    $social_charges_rate = GETPOST('SIG_SOCIAL_CHARGES_RATE', 'alphanohtml');
+    if (empty($social_charges_rate) || $social_charges_rate < 0) {
+        $social_charges_rate = 55; // Valeur par défaut 55%
+    }
+    
+    // Gestion des comptes SIG pour achats consommés
+    $sig_account_start = GETPOST('SIG_ACCOUNT_START', 'alphanohtml');
+    $sig_account_end = GETPOST('SIG_ACCOUNT_END', 'alphanohtml');
+    
+
+    
     $result1 = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
     $result2 = dolibarr_set_const($db, 'SIG_MARGIN_RATE', $margin_rate, 'chaine', 0, '', $conf->entity);
     $result3 = dolibarr_set_const($db, 'SIG_PAYMENT_DELAY', $payment_delay, 'chaine', 0, '', $conf->entity);
@@ -87,8 +99,11 @@ if ($action == 'setvalue' && $user->admin) {
     $result8 = dolibarr_set_const($db, 'SIG_INCLUDE_UNPAID_SALARIES', $include_unpaid_salaries, 'yesno', 0, '', $conf->entity);
     $result9 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES', $include_customer_template_invoices, 'yesno', 0, '', $conf->entity);
     $result10 = dolibarr_set_const($db, 'SIG_PROJECTION_UNCERTAINTY', $projection_uncertainty, 'chaine', 0, '', $conf->entity);
+    $result11 = dolibarr_set_const($db, 'SIG_ACCOUNT_START', $sig_account_start, 'chaine', 0, '', $conf->entity);
+    $result12 = dolibarr_set_const($db, 'SIG_ACCOUNT_END', $sig_account_end, 'chaine', 0, '', $conf->entity);
+    $result13 = dolibarr_set_const($db, 'SIG_SOCIAL_CHARGES_RATE', $social_charges_rate, 'chaine', 0, '', $conf->entity);
     
-    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0 && $result8 > 0 && $result9 > 0 && $result10 > 0) {
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0 && $result8 > 0 && $result9 > 0 && $result10 > 0 && $result11 > 0 && $result12 > 0 && $result13 > 0) {
         $db->commit();
         setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     } else {
@@ -341,6 +356,67 @@ if (empty($current_uncertainty)) $current_uncertainty = '1000'; // Valeur par d�
 print '<input type="number" name="SIG_PROJECTION_UNCERTAINTY" value="'.$current_uncertainty.'" min="0" max="100000" step="100" class="flat" style="width: 100px;"> €';
 print '</td>';
 print '<td>'.$langs->trans("SigProjectionUncertaintyHelp").'</td>';
+print '</tr>';
+
+print '</table>';
+
+print '<br>';
+print '<div class="center">';
+print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
+print '</div>';
+
+print '</form>';
+
+// Section SIG (Soldes Intermédiaires de Gestion)
+print '<br>';
+print '<h3>'.$langs->trans("SigSIGSection").'</h3>';
+
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="action" value="setvalue">';
+
+print '<table class="noborder" width="100%">';
+print '<tr class="liste_titre">';
+print '<td>'.$langs->trans("Parameter").'</td>';
+print '<td>'.$langs->trans("Value").'</td>';
+print '<td>'.$langs->trans("Description").'</td>';
+print '</tr>';
+
+// Configuration des comptes pour achats consommés
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigAccountStart").'</td>';
+print '<td>';
+
+$current_account_start = getDolGlobalString('SIG_ACCOUNT_START');
+if (empty($current_account_start)) $current_account_start = '601'; // Valeur par défaut
+
+print '<input type="text" name="SIG_ACCOUNT_START" value="'.$current_account_start.'" maxlength="10" class="flat" style="width: 100px;">';
+print '</td>';
+print '<td>'.$langs->trans("SigAccountStartHelp").'</td>';
+print '</tr>';
+
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigAccountEnd").'</td>';
+print '<td>';
+
+$current_account_end = getDolGlobalString('SIG_ACCOUNT_END');
+if (empty($current_account_end)) $current_account_end = '609'; // Valeur par défaut
+
+print '<input type="text" name="SIG_ACCOUNT_END" value="'.$current_account_end.'" maxlength="10" class="flat" style="width: 100px;">';
+print '</td>';
+print '<td>'.$langs->trans("SigAccountEndHelp").'</td>';
+print '</tr>';
+
+// Configuration du taux de charges sociales
+print '<tr class="oddeven">';
+print '<td width="200">'.$langs->trans("SigSocialChargesRate").'</td>';
+print '<td>';
+
+$current_social_rate = getDolGlobalString('SIG_SOCIAL_CHARGES_RATE');
+if (empty($current_social_rate)) $current_social_rate = '55'; // Valeur par défaut
+
+print '<input type="number" name="SIG_SOCIAL_CHARGES_RATE" value="'.$current_social_rate.'" min="0" max="100" step="0.1" class="flat" style="width: 80px;"> %';
+print '</td>';
+print '<td>'.$langs->trans("SigSocialChargesRateHelp").'</td>';
 print '</tr>';
 
 print '</table>';

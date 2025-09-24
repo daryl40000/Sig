@@ -1,5 +1,100 @@
 # Changelog - Module SIG
 
+## Version 0.8 (2025-09-24)
+
+### 🚀 Nouveautés majeures
+
+#### 🏠 Tableau de bord avec suivi d'objectifs
+- **Nouveau tableau de bord** : Page d'accueil dédiée au suivi CA vs objectifs
+- **Saisie d'objectifs** : Interface simple pour définir les cibles mensuelles
+- **Calcul d'écarts automatique** : Réalisé - Objectif avec codes couleurs
+- **Taux de réalisation** : Pourcentage d'atteinte des objectifs en temps réel
+- **Sauvegarde persistante** : Objectifs conservés par année en base de données (table `llx_const`)
+
+#### 🧭 Navigation et architecture améliorées
+- **Menu "Tableau de bord"** : Nouveau menu en première position dans le menu de gauche
+- **Réorganisation des fichiers** : `index.php` → Tableau de bord, `ca.php` → Pilotage CA
+- **Fonctions communes** : Création de `lib/sig_functions.php` pour éviter la duplication de code
+- **Navigation cohérente** : Mise à jour de tous les menus de navigation dans les pages
+
+### 🔧 Améliorations techniques
+- **Architecture modulaire** : Séparation des fonctions SIG dans un fichier dédié
+- **Code optimisé** : Suppression des duplications de code entre les pages
+- **Gestion d'erreurs** : Inclusion correcte de `admin.lib.php` pour les fonctions de configuration
+
+### 🎨 Interface utilisateur
+- **Codes couleurs visuels** : 
+  - 🟢 Vert pour les objectifs dépassés
+  - 🔴 Rouge pour les objectifs non atteints
+  - 🟠 Orange pour les seuils intermédiaires
+- **Interface responsive** : Tableau adaptatif avec saisie directe
+- **Messages de confirmation** : Feedback utilisateur après sauvegarde des objectifs
+
+---
+
+## Version 0.7 (2025-09-21)
+
+### 🚀 **Fonctionnalité majeure : Page Soldes Intermédiaires de Gestion (SIG)**
+
+#### 📊 **Nouvelle page d'analyse financière complète**
+- ✅ **Tableau SIG détaillé** : 11 indicateurs clés du CA au résultat courant avant impôts
+- ✅ **Calculs automatiques** : Marge commerciale, Valeur ajoutée, EBE, Résultat d'exploitation
+- ✅ **Pourcentages du CA** : Analyse des ratios pour chaque poste comptable
+- ✅ **Colorisation intelligente** : Vert pour les valeurs positives, Rouge pour les négatives
+- ✅ **Descriptions explicatives** : Aide contextuelle pour chaque indicateur SIG
+
+#### 📈 **Graphique d'analyse SIG**
+- ✅ **Visualisation en barres** : Représentation graphique de tous les postes SIG
+- ✅ **Couleurs spécialisées** : Chaque indicateur clé a sa couleur distinctive
+- ✅ **Tooltips informatifs** : Formatage monétaire et détails au survol
+- ✅ **Design responsive** : Adaptation automatique à tous les écrans
+
+#### 🎯 **Ratios d'analyse financière**
+- ✅ **4 ratios clés** avec seuils d'alerte visuels :
+  - Taux de marge (>20% vert, >10% orange, <10% rouge)
+  - Taux de VA (>30% vert, >15% orange, <15% rouge)  
+  - Taux d'EBE (>15% vert, >8% orange, <8% rouge)
+  - Taux de résultat (>10% vert, >5% orange, <5% rouge)
+
+### 🧭 **Navigation unifiée et menu de gauche**
+
+#### Menu de navigation intégré
+- ✅ **3 onglets** dans toutes les pages : Pilotage CA, Trésorerie, SIG
+- ✅ **Navigation fluide** : Conservation de l'année sélectionnée entre les pages
+- ✅ **Onglet actif** : Mise en évidence visuelle de la page courante
+
+#### Menu de gauche Dolibarr
+- ✅ **Nouveau menu SIG** : "Soldes Intermédiaires de Gestion" ajouté au menu principal
+- ✅ **Position optimale** : Entre Trésorerie et Configuration
+- ✅ **Icône dédiée** : Calculatrice (fa-calculator) pour identification rapide
+- ✅ **Script de rafraîchissement** : `refresh_menus.php` pour mise à jour automatique des menus
+
+### 🔧 **Corrections et améliorations**
+
+#### Graphique de trésorerie
+- ✅ **Zones colorées corrigées** : Concordance parfaite entre couleurs et position de la courbe
+- ✅ **Logique simplifiée** : Utilisation de `null` au lieu de `0` pour éviter les segments indésirables
+- ✅ **Légende épurée** : Zone d'incertitude retirée de la légende pour plus de clarté
+
+#### Architecture technique
+- ✅ **Nouvelle page** : `sig.php` avec architecture modulaire
+- ✅ **Fonction centralisée** : `sig_calculate_sig_data()` pour tous les calculs SIG
+- ✅ **Sources de données** : Intégration avec factures, salaires et estimations intelligentes
+- ✅ **Performance** : Requêtes SQL optimisées et gestion d'erreurs
+
+### 🌐 **Traductions et configuration**
+- ✅ **Nouvelle traduction** : `Soldes Intermédiaires de Gestion`
+- ✅ **Migration transparente** : Aucune modification de base de données requise
+- ✅ **Rétrocompatibilité** : Toutes les données existantes préservées
+
+### 📋 **Impact utilisateur**
+- **Vision 360°** : CA, trésorerie et rentabilité dans un seul module
+- **Aide à la décision** : Ratios avec seuils d'alerte automatiques
+- **Interface intuitive** : Navigation claire entre les 3 modules principaux
+- **Cockpit de pilotage** : Système complet d'analyse financière
+
+---
+
 ## Version 0.6 (2025-09-22)
 
 ### 🚀 **Fonctionnalités majeures : Projections de trésorerie et comparaison historique**

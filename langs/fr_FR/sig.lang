@@ -44,3 +44,15 @@ SigProjectionUncertaintyHelp=Montant en euros de l'incertitude qui s'ajoute chaq
 SigManualTurnoverSection=Saisie manuelle des CA des années précédentes
 SigManualTurnoverTitle=Chiffre d'affaires manuel pour %s
 SigManualTurnoverHelp=Si vous n'avez pas de données dans Dolibarr pour l'année %s, vous pouvez saisir manuellement les montants mensuels pour l'affichage comparatif.
+Soldes Intermédiaires de Gestion=Soldes Intermédiaires de Gestion
+SigSIGSection=Configuration SIG (Soldes Intermédiaires de Gestion)
+SigAccountStart=Compte de début (Achats)
+SigAccountStartHelp=Premier compte considéré comme "Achats consommés" (ex: 601 pour inclure 601 à 609)
+SigAccountEnd=Compte de fin (Achats)
+SigAccountEndHelp=Dernier compte considéré comme "Achats consommés" (ex: 609). Les factures hors de cette plage seront considérées comme charges externes
+SigSocialChargesRate=Taux de charges sociales
+SigSocialChargesRateHelp=Pourcentage de charges sociales appliqué automatiquement aux salaires (défaut: 55%). Inclut cotisations patronales, URSSAF, retraite, etc.
+
+# Menu
+Tableau de bord=Tableau de bord
+ChiffreAffairesActuel=Chiffre d'affaires
