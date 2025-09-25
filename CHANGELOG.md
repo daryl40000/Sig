@@ -1,405 +1,101 @@
-# Changelog - Module SIG
+# 📝 Changelog - Module SIG
 
-## Version 0.8 (2025-09-24)
-
-### 🚀 Nouveautés majeures
-
-#### 🏠 Tableau de bord avec suivi d'objectifs
-- **Nouveau tableau de bord** : Page d'accueil dédiée au suivi CA vs objectifs
-- **Saisie d'objectifs** : Interface simple pour définir les cibles mensuelles
-- **Calcul d'écarts automatique** : Réalisé - Objectif avec codes couleurs
-- **Taux de réalisation** : Pourcentage d'atteinte des objectifs en temps réel
-- **Sauvegarde persistante** : Objectifs conservés par année en base de données (table `llx_const`)
-
-#### 🧭 Navigation et architecture améliorées
-- **Menu "Tableau de bord"** : Nouveau menu en première position dans le menu de gauche
-- **Réorganisation des fichiers** : `index.php` → Tableau de bord, `ca.php` → Pilotage CA
-- **Fonctions communes** : Création de `lib/sig_functions.php` pour éviter la duplication de code
-- **Navigation cohérente** : Mise à jour de tous les menus de navigation dans les pages
-
-### 🔧 Améliorations techniques
-- **Architecture modulaire** : Séparation des fonctions SIG dans un fichier dédié
-- **Code optimisé** : Suppression des duplications de code entre les pages
-- **Gestion d'erreurs** : Inclusion correcte de `admin.lib.php` pour les fonctions de configuration
-
-### 🎨 Interface utilisateur
-- **Codes couleurs visuels** : 
-  - 🟢 Vert pour les objectifs dépassés
-  - 🔴 Rouge pour les objectifs non atteints
-  - 🟠 Orange pour les seuils intermédiaires
-- **Interface responsive** : Tableau adaptatif avec saisie directe
-- **Messages de confirmation** : Feedback utilisateur après sauvegarde des objectifs
+Toutes les modifications notables de ce projet seront documentées dans ce fichier.
 
 ---
 
-## Version 0.7 (2025-09-21)
+## [0.81] - 2025-09-25
 
-### 🚀 **Fonctionnalité majeure : Page Soldes Intermédiaires de Gestion (SIG)**
+### 🔄 **Changements Majeurs**
+- **Refonte complète du système de marges** : Passage d'un calcul basé sur le module Margin natif à un calcul simplifié basé sur le CA réalisé
+- **Suppression de la dépendance** au module Margin de Dolibarr
+- **Simplification de l'interface** : Suppression de la section diagnostic complexe
 
-#### 📊 **Nouvelle page d'analyse financière complète**
-- ✅ **Tableau SIG détaillé** : 11 indicateurs clés du CA au résultat courant avant impôts
-- ✅ **Calculs automatiques** : Marge commerciale, Valeur ajoutée, EBE, Résultat d'exploitation
-- ✅ **Pourcentages du CA** : Analyse des ratios pour chaque poste comptable
-- ✅ **Colorisation intelligente** : Vert pour les valeurs positives, Rouge pour les négatives
-- ✅ **Descriptions explicatives** : Aide contextuelle pour chaque indicateur SIG
+### ✨ **Nouveautés**
+- **Calcul de marge simplifié** : `Marge = CA Réalisé × Taux de Marge Configuré`
+- **Configuration centralisée** : Un seul paramètre `SIG_MARGIN_RATE` à configurer
+- **Performance optimisée** : Réduction significative du nombre de requêtes SQL
 
-#### 📈 **Graphique d'analyse SIG**
-- ✅ **Visualisation en barres** : Représentation graphique de tous les postes SIG
-- ✅ **Couleurs spécialisées** : Chaque indicateur clé a sa couleur distinctive
-- ✅ **Tooltips informatifs** : Formatage monétaire et détails au survol
-- ✅ **Design responsive** : Adaptation automatique à tous les écrans
+### 🗑️ **Suppressions**
+- Section "DIAGNOSTIC - Factures et Marges du mois en cours" dans `index.php`
+- Fonction `sig_diagnose_margins()` 
+- Tableau explicatif de la méthode de calcul
+- Toutes les requêtes SQL de debug
 
-#### 🎯 **Ratios d'analyse financière**
-- ✅ **4 ratios clés** avec seuils d'alerte visuels :
-  - Taux de marge (>20% vert, >10% orange, <10% rouge)
-  - Taux de VA (>30% vert, >15% orange, <15% rouge)  
-  - Taux d'EBE (>15% vert, >8% orange, <8% rouge)
-  - Taux de résultat (>10% vert, >5% orange, <5% rouge)
+### 🔧 **Modifications Techniques**
+- **`sig_get_margin_for_month()`** : Refonte complète de l'algorithme
+- **Interface utilisateur** : Épuration du tableau de suivi des marges
+- **Documentation** : Ajout de `VERSION_0.81_SUMMARY.md`
 
-### 🧭 **Navigation unifiée et menu de gauche**
-
-#### Menu de navigation intégré
-- ✅ **3 onglets** dans toutes les pages : Pilotage CA, Trésorerie, SIG
-- ✅ **Navigation fluide** : Conservation de l'année sélectionnée entre les pages
-- ✅ **Onglet actif** : Mise en évidence visuelle de la page courante
-
-#### Menu de gauche Dolibarr
-- ✅ **Nouveau menu SIG** : "Soldes Intermédiaires de Gestion" ajouté au menu principal
-- ✅ **Position optimale** : Entre Trésorerie et Configuration
-- ✅ **Icône dédiée** : Calculatrice (fa-calculator) pour identification rapide
-- ✅ **Script de rafraîchissement** : `refresh_menus.php` pour mise à jour automatique des menus
-
-### 🔧 **Corrections et améliorations**
-
-#### Graphique de trésorerie
-- ✅ **Zones colorées corrigées** : Concordance parfaite entre couleurs et position de la courbe
-- ✅ **Logique simplifiée** : Utilisation de `null` au lieu de `0` pour éviter les segments indésirables
-- ✅ **Légende épurée** : Zone d'incertitude retirée de la légende pour plus de clarté
-
-#### Architecture technique
-- ✅ **Nouvelle page** : `sig.php` avec architecture modulaire
-- ✅ **Fonction centralisée** : `sig_calculate_sig_data()` pour tous les calculs SIG
-- ✅ **Sources de données** : Intégration avec factures, salaires et estimations intelligentes
-- ✅ **Performance** : Requêtes SQL optimisées et gestion d'erreurs
-
-### 🌐 **Traductions et configuration**
-- ✅ **Nouvelle traduction** : `Soldes Intermédiaires de Gestion`
-- ✅ **Migration transparente** : Aucune modification de base de données requise
-- ✅ **Rétrocompatibilité** : Toutes les données existantes préservées
-
-### 📋 **Impact utilisateur**
-- **Vision 360°** : CA, trésorerie et rentabilité dans un seul module
-- **Aide à la décision** : Ratios avec seuils d'alerte automatiques
-- **Interface intuitive** : Navigation claire entre les 3 modules principaux
-- **Cockpit de pilotage** : Système complet d'analyse financière
+### 🐛 **Corrections**
+- Résolution du problème de tableau diagnostic vide
+- Amélioration de la fiabilité des calculs de marge
+- Optimisation des performances
 
 ---
 
-## Version 0.6 (2025-09-22)
+## [0.8] - 2025-09-20
 
-### 🚀 **Fonctionnalités majeures : Projections de trésorerie et comparaison historique**
+### ✨ **Nouveautés**
+- **Tableau de bord avec suivi d'objectifs** : Interface complète pour définir et suivre les objectifs de CA
+- **Suivi des marges réalisées** : Intégration avec le module Margin natif de Dolibarr
+- **Navigation améliorée** : Réorganisation des menus et des pages
+- **Sauvegarde persistante** : Objectifs conservés par année en base de données
 
-#### 📈 **Projections de trésorerie avec zone d'incertitude**
-- ✅ **Zones colorées** : Colorisation automatique positive (vert) / négative (rouge) dans le graphique de trésorerie
-- ✅ **Courbes de projection** : Projections optimiste (verte) et pessimiste (rouge) à partir du mois en cours
-- ✅ **Zone d'incertitude** : Zone jaune transparente entre les projections
-- ✅ **Incertitude configurable** : Nouvelle option "Incertitude des projections" (défaut: 1000€)
-- ✅ **Progression linéaire** : ±1000€ le 1er mois, ±2000€ le 2ème mois, etc.
-
-#### 📊 **Comparaison historique avec année N-1**
-- ✅ **Ligne CA N-1** : Affichage automatique de l'année précédente dans le tableau
-- ✅ **Ligne de différence** : Calcul et colorisation des écarts (vert=amélioration, rouge=baisse)
-- ✅ **Saisie manuelle** : Interface pour saisir les CA des années précédentes si pas de données Dolibarr
-- ✅ **Graphique comparatif** : Nouveau graphique avec courbes année courante vs année précédente
-- ✅ **Logique intelligente** : Priorité aux données réelles, fallback sur données manuelles
-
-#### 🎨 **Optimisations interface**
-- ✅ **Page index épurée** : Suppression du tableau des devis signés (information redondante)
-- ✅ **Performance** : Réduction des requêtes SQL et optimisation du chargement
-
-### 🔧 **Améliorations techniques**
-
-#### Configuration
-- **Nouvelle constante** : `SIG_PROJECTION_UNCERTAINTY` (valeur d'incertitude)
-- **Stockage JSON** : `SIG_MANUAL_CA_[ANNÉE]` pour les données manuelles
-- **Interface admin** : Nouvelle section "Saisie manuelle des CA des années précédentes"
-
-#### Fonctions ajoutées
-- `sig_get_manual_turnover_for_month()` : Récupération des données manuelles
-- Gestion robuste des erreurs et validation des données
-
-#### JavaScript optimisé
-- **Gestion d'erreurs** : Vérifications de chargement Chart.js et existence des éléments
-- **Code allégé** : Simplification des fonctions dynamiques
-- **Performance** : Optimisation du rendu des graphiques
-
-### 🌐 **Traductions ajoutées**
-- `SigProjectionUncertainty` : Incertitude des projections
-- `SigManualTurnoverSection` : Saisie manuelle des CA des années précédentes
-- `SigManualTurnoverTitle` : Chiffre d'affaires manuel pour %s
-- `SigManualTurnoverHelp` : Texte d'aide pour la saisie manuelle
-
-### 📋 **Migration et compatibilité**
-- **Rétrocompatible** : Aucune modification de base de données requise
-- **Configuration automatique** : Valeurs par défaut pour les nouvelles options
-- **Données existantes** : Préservation complète des données actuelles
+### 🔧 **Améliorations**
+- **Architecture optimisée** : Fonctions communes dans `lib/sig_functions.php`
+- **Interface utilisateur** : Codes couleurs et indicateurs visuels
+- **Calculs automatiques** : Taux de réalisation et écarts en temps réel
 
 ---
 
-## Version 0.5 (2025-09-21)
+## [0.7] - 2025-09-15
 
-### 🚀 **Nouvelle fonctionnalité majeure : Factures modèle client**
+### ✨ **Nouveautés**
+- **Page Soldes Intermédiaires de Gestion (SIG)** : Tableau SIG complet avec 11 indicateurs
+- **Graphique interactif** : Visualisation en barres des postes SIG
+- **Ratios d'analyse** : 4 ratios clés avec seuils d'alerte visuels
+- **Configuration des charges sociales** : Taux configurable pour les charges
 
-#### Fonctionnalité ajoutée
-- ✅ **Inclusion des factures modèle client** dans les encaissements prévisionnels de trésorerie
-- ✅ **Gestion intelligente de la fréquence** : Mensuelle, trimestrielle, semestrielle, annuelle
-- ✅ **Calcul automatique de la marge** basé sur le taux de marge configuré dans le module
-- ✅ **Configuration granulaire** via une nouvelle option dans la section Trésorerie
-
-#### Implémentation technique
-- **Nouvelle option de configuration** : "Inclure les factures modèle client" (`SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES`)
-- **Table utilisée** : `llx_facture_rec` (factures récurrentes Dolibarr)
-- **Nouvelles fonctions** :
-  - `sig_get_customer_template_invoices_for_month()` : Calcul de la marge mensuelle
-  - `sig_should_generate_template_invoice_for_month()` : Logique de fréquence
-  - `sig_get_customer_template_invoices_details_for_month()` : Support diagnostic
-
-#### Logique de calcul
-- **Formule** : Marge = Montant HT × Taux de marge configuré
-- **Fréquence mensuelle** : Marge comptée tous les mois
-- **Fréquence trimestrielle** : Marge comptée tous les 3 mois (janv, avril, juillet, oct)
-- **Fréquence annuelle** : Marge comptée une fois par an selon la date de référence
-
-#### Interface utilisateur
-- **Affichage** : Ligne "Factures modèle: +X€" en orange (#FF9800) dans les encaissements
-- **Intégration** : Prise en compte dans tous les calculs de solde et totaux
-- **Configuration** : Case à cocher native Dolibarr dans admin/setup.php
-
-#### Corrections importantes
-- ✅ **Logique temporelle corrigée** : Marge comptée le mois de génération (pas d'encaissement)
-- ✅ **Restriction aux mois futurs** : Factures modèle appliquées seulement à partir du mois actuel
-- ✅ **Évitement du double comptage** : Pas de prise en compte des factures déjà générées
-
-#### Formule de trésorerie mise à jour
-```
-Solde fin = Solde début + Encaissements + Factures client + Factures modèle + Marge précédente - Décaissements - Salaires impayés
-```
-
-#### Configuration requise
-- **Activation** : Cocher "Inclure les factures modèle client" dans Configuration > Modules > SIG
-- **Prérequis** : Module factures récurrentes Dolibarr activé avec factures modèle configurées
-- **Taux de marge** : Utilise le taux configuré dans le module (défaut : 20%)
+### 🔧 **Améliorations**
+- **Calculs automatiques** : Marge commerciale, Valeur ajoutée, EBE, Résultat d'exploitation
+- **Interface d'administration** : Configuration native Dolibarr
 
 ---
 
-## Version 0.41 (2025-09-21)
+## [0.6] - 2025-09-10
 
-### 🐛 **Correction critique : Calcul du solde de fin de mois**
+### ✨ **Nouveautés**
+- **Tableau de trésorerie prévisionnel** : Vue mensuelle des mouvements
+- **Graphique interactif** : Visualisation avec Chart.js
+- **Configuration avancée** : Options d'inclusion granulaires
 
-#### Problème corrigé
-- ✅ **Erreur majeure** : Les salaires impayés n'étaient pas pris en compte dans le calcul du solde de fin de mois
-- ✅ **Impact** : Le solde de fin de mois était surévalué car les salaires impayés étaient affichés mais pas déduits du calcul
-- ✅ **Solution** : Ajout de `- $salaires_impayes_mois` dans la formule de calcul du solde
-
-#### Détail technique
-- **Fichier modifié** : `tresorerie.php` (ligne 179)
-- **Avant** : `$solde_fin_mois = $solde_debut_mois + $encaissements_mois + $factures_client_mois + $marge_mois_precedent - $decaissements_mois;`
-- **Après** : `$solde_fin_mois = $solde_debut_mois + $encaissements_mois + $factures_client_mois + $marge_mois_precedent - $decaissements_mois - $salaires_impayes_mois;`
-
-#### Impact de la correction
-- ✅ **Solde de fin de mois** : Maintenant exact et précis
-- ✅ **Prévisions de trésorerie** : Désormais fiables
-- ✅ **Configuration** : Aucune modification requise, correction automatique si l'option "Inclure les salaires impayés" est activée
+### 🔧 **Améliorations**
+- **Données exactes** : Utilisation des données réelles du module banque
+- **Interface épurée** : Suppression des sections redondantes
+- **Totaux annuels** : Synthèse des mouvements
 
 ---
 
-## Version 0.4 (2025-09-21)
+## [0.5] - 2025-09-05
 
-### 🚀 Refonte majeure de la page trésorerie
+### ✨ **Nouveautés**
+- **Module de base** : Structure initiale du module SIG
+- **Configuration de base** : Paramètres essentiels
+- **Menus intégrés** : Navigation dans Dolibarr
 
-#### Page de trésorerie épurée et optimisée
-- ✅ **Suppression des sections redondantes** : Suppression des boîtes "CA Encaissé" et "CA Potentiel" (disponibles sur leur page dédiée)
-- ✅ **Suppression de la section "Solde Bancaire"** : Informations redondantes avec le tableau principal
-- ✅ **Interface simplifiée** : Page focalisée uniquement sur l'évolution de la trésorerie
-
-#### Graphique interactif des soldes
-- ✅ **Nouveau graphique Chart.js** : Visualisation de l'évolution des soldes de fin de mois sur l'année
-- ✅ **Design moderne** : Graphique en ligne avec zone remplie, couleurs cohérentes avec l'interface
-- ✅ **Interactivité** : Survol pour voir les valeurs exactes, formatage en euros
-- ✅ **Responsive** : Adaptation automatique à la taille de l'écran
-
-#### Amélioration des données pour les mois passés
-- ✅ **Données exactes du module banque** : Pour les mois écoulés, utilisation des données réelles du module banque Dolibarr
-- ✅ **Fonction dédiée** : `sig_get_bank_movements_real_for_month()` pour récupérer uniquement les mouvements bancaires réels
-- ✅ **Soldes cohérents** : Les soldes de fin des mois passés correspondent exactement au module banque
-
-#### Correction de la logique prévisionnelle
-- ✅ **Mois en cours corrigé** : Inclusion des factures qui arrivent à échéance dans le mois en cours (et pas seulement celles en retard)
-- ✅ **Roll-over des retards** : Les factures/salaires en retard des mois passés sont reportés au mois actuel
-- ✅ **Calcul prévisionnel optimisé** : Nouvelle formule pour le solde fin = Solde début + Encaissements + Factures client + Marge mois précédent - Décaissements
-
-#### Simplification de l'affichage
-- ✅ **Colonne "Solde Fin" simplifiée** : Affichage direct du solde prévisionnel sans détails des composants
-- ✅ **Code nettoyé** : Suppression de toutes les lignes de diagnostic temporaires
-
-### 🔧 Améliorations techniques
-
-#### Nouvelles fonctions
-- ✅ **`sig_get_bank_movements_real_for_month()`** : Récupération des mouvements bancaires réels uniquement
-- ✅ **Collecte de données pour graphique** : Tableaux `$mois_labels` et `$soldes_data`
-
-#### Fonctions supprimées (optimisation)
-- ❌ **`sig_get_total_turnover_for_year()`** : Fonction non utilisée supprimée
-- ❌ **`sig_get_total_expected_turnover_for_year()`** : Fonction non utilisée supprimée
-
-#### Logique améliorée
-- ✅ **Distinction mois écoulés/futurs** : Logique claire avec `$is_past_month`
-- ✅ **Affichage conditionnel** : Les encaissements/décaissements utilisent les bonnes données selon le type de mois
-- ✅ **Correction des dates d'échéance** : Pour le mois en cours, inclusion de toutes les factures jusqu'à la fin du mois
-
-### 📊 Interface utilisateur
-- ✅ **Graphique de 400px de hauteur** : Bonne lisibilité des tendances
-- ✅ **Titre dynamique** : "Évolution des Soldes de Fin de Mois - [Année]"
-- ✅ **Formatage français** : Devise en euros avec séparateurs appropriés
-- ✅ **CDN Chart.js** : Chargement moderne de la bibliothèque graphique
+### 🔧 **Fonctionnalités**
+- Calculs de base pour CA et trésorerie
+- Interface d'administration
+- Droits utilisateur
 
 ---
 
-## Version 0.35 (2025-09-21)
+## 📋 **Légende**
 
-### ✅ Nouvelles fonctionnalités
-
-#### Gestion des salaires impayés
-- ✅ **Option "Inclure les salaires impayés"** : Contrôle l'inclusion des salaires impayés dans les décaissements à venir
-- ✅ **Fonction optimisée** : Création d'une requête propre `sig_get_unpaid_salaries_for_month()` pour récupérer les salaires impayés par mois
-- ✅ **Affichage détaillé** : Les salaires impayés sont affichés dans la colonne des décaissements avec code couleur violet (#9C27B0)
-- ✅ **Calculs corrects** : Utilisation de la colonne `dateep` (date de fin de période) pour affecter chaque salaire au bon mois
-- ✅ **Totaux annuels** : Prise en compte des salaires impayés dans les totaux de fin d'année
-
-### 🔧 Améliorations techniques
-- ✅ **Requête SQL optimisée** : `WHERE paye = 0` pour identifier les salaires impayés
-- ✅ **Filtrage par mois** : Utilisation de `dateep >= 'YYYY-MM-01' AND dateep <= 'YYYY-MM-31'` pour la répartition mensuelle
-- ✅ **Intégration native** : Respect de l'option de configuration `SIG_INCLUDE_UNPAID_SALARIES`
-- ✅ **Code propre** : Suppression des diagnostics temporaires et optimisation des performances
-
-### 📊 Configuration
-- ✅ **Option de configuration** : "Inclure les salaires impayés" dans la section Trésorerie (admin/setup.php)
-- ✅ **Activation/désactivation** : Case à cocher native Dolibarr pour activer ou désactiver la fonctionnalité
-- ✅ **Constante Dolibarr** : `SIG_INCLUDE_UNPAID_SALARIES` de type `yesno`
-
-### 📈 Fonctionnement
-- **Table utilisée** : `llx_salary`
-- **Critère d'impayé** : `paye = 0`
-- **Date de référence** : `dateep` (date de fin de période)
-- **Montant** : `amount` (montant du salaire)
-- **Affichage** : Dans la colonne "Décaissements" du tableau de trésorerie
-
----
-
-## Version 0.3 (2025-01-XX)
-
-### 🎯 Nouvelles fonctionnalités
-
-#### Configuration avancée de la trésorerie
-- ✅ **Option "Inclure les factures fournisseurs"** : Contrôle l'inclusion des factures fournisseurs et charges fiscales/sociales dans les factures fournisseurs
-- ✅ **Option "Inclure les charges sociales"** : Contrôle l'inclusion des charges sociales du module Sociales (URSSAF, retraite, etc.)
-- ✅ **Option "Inclure les devis signés"** : Contrôle l'inclusion des devis signés dans les encaissements à venir (marge avec délai de paiement)
-- ✅ **Option "Inclure les factures client impayées"** : Contrôle l'inclusion des factures client impayées dans les encaissements à venir (basé sur la date de règlement prévue)
-
-#### Améliorations de l'interface
-- ✅ **Interface de configuration native** : Utilisation des cases à cocher Dolibarr standard
-- ✅ **Affichage de l'état** : Configuration actuelle visible dans l'interface
-- ✅ **Séparation des options** : Contrôle indépendant de chaque type d'élément
-
-#### Optimisations du code
-- ✅ **Suppression des diagnostics** : Nettoyage du code source (suppression de ~500 lignes de code de diagnostic)
-- ✅ **Performance améliorée** : Plus d'exécution de requêtes inutiles
-- ✅ **Code source plus propre** : HTML plus léger et plus rapide à charger
-
-### 🔧 Modifications techniques
-
-#### Nouvelles constantes de configuration
-- `SIG_INCLUDE_SUPPLIER_INVOICES` : Inclure les factures fournisseurs (yesno)
-- `SIG_INCLUDE_SOCIAL_CHARGES` : Inclure les charges sociales (yesno)
-- `SIG_INCLUDE_SIGNED_QUOTES` : Inclure les devis signés (yesno)
-- `SIG_INCLUDE_CUSTOMER_INVOICES` : Inclure les factures client impayées (yesno)
-
-#### Nouvelles fonctions
-- `sig_get_customer_invoices_for_month()` : Récupère les factures client impayées par mois
-- `sig_get_sociales_charges_for_month()` : Récupère les charges sociales du module Sociales
-- `sig_get_chargesociales_for_month()` : Récupère les charges sociales depuis la table chargesociales
-
-#### Modifications des fonctions existantes
-- `sig_get_expected_margin_for_month()` : Respecte l'option SIG_INCLUDE_SIGNED_QUOTES
-- `sig_get_expected_margin_with_delay_for_month()` : Respecte l'option SIG_INCLUDE_SIGNED_QUOTES
-- `sig_get_bank_movements_details_for_month()` : Intègre les nouvelles options de configuration
-
-### 📊 Logique de calcul mise à jour
-
-#### Colonne "Encaissements"
-- Mouvements bancaires réels
-- + Marge prévue (si devis signés activés)
-- + Factures client impayées (si factures client activées)
-
-#### Colonne "Décaissements"
-- Mouvements bancaires réels
-- + Factures fournisseurs (si factures fournisseurs activées)
-- + Charges sociales (si charges sociales activées)
-
-#### Colonne "Solde fin théorique"
-- Solde début + Encaissements - Décaissements
-- + Marge avec délai (si devis signés activés)
-- + Factures client impayées (si factures client activées)
-
-### 🎛️ Scénarios d'utilisation
-
-1. **Analyse complète** : Toutes les options cochées
-2. **Analyse réaliste** : Seulement les mouvements réels (toutes options décochées)
-3. **Analyse partielle** : Combinaisons selon les besoins
-4. **Analyse conservatrice** : Seulement les factures fournisseurs et charges sociales
-
-### 🐛 Corrections de bugs
-
-- ✅ **Affichage des devis signés** : Correction de l'affichage de la marge des devis signés dans la colonne encaissements
-- ✅ **Cohérence des options** : Toutes les options respectent maintenant leur état activé/désactivé
-- ✅ **Calcul des totaux** : Les totaux incluent correctement tous les éléments selon les options
-
-### 📝 Traductions ajoutées
-
-- `SigTreasurySection` : Section Trésorerie
-- `SigIncludeSupplierInvoices` : Inclure les factures fournisseurs
-- `SigIncludeSupplierInvoicesHelp` : Aide pour l'option factures fournisseurs
-- `SigIncludeSocialCharges` : Inclure les charges sociales
-- `SigIncludeSocialChargesHelp` : Aide pour l'option charges sociales
-- `SigIncludeSignedQuotes` : Inclure les devis signés
-- `SigIncludeSignedQuotesHelp` : Aide pour l'option devis signés
-- `SigIncludeCustomerInvoices` : Inclure les factures client impayées
-- `SigIncludeCustomerInvoicesHelp` : Aide pour l'option factures client
-
----
-
-## Version 0.2 (2025-01-XX)
-
-### 🎯 Fonctionnalités de base
-
-- ✅ **Tableau de trésorerie** : Affichage mensuel des mouvements bancaires
-- ✅ **Calcul des marges** : Intégration des devis signés avec délai de paiement
-- ✅ **Configuration de base** : Compte bancaire, taux de marge, délai de paiement
-- ✅ **Interface utilisateur** : Tableau responsive avec couleurs et totaux
-
-### 🔧 Fonctionnalités techniques
-
-- ✅ **Intégration Dolibarr** : Module natif avec droits et configuration
-- ✅ **Requêtes optimisées** : Récupération efficace des données bancaires
-- ✅ **Gestion des entités** : Respect des filtres d'entité Dolibarr
-- ✅ **Calculs automatiques** : Solde fin théorique et variations
-
----
-
-## Version 0.1 (2025-01-XX)
-
-### 🎯 Version initiale
-
-- ✅ **Structure du module** : Création de la base du module SIG
-- ✅ **Configuration** : Interface de configuration de base
-- ✅ **Fonctionnalités** : Première version du tableau de trésorerie
+- ✨ **Nouveautés** : Nouvelles fonctionnalités
+- 🔧 **Améliorations** : Améliorations de fonctionnalités existantes
+- 🐛 **Corrections** : Corrections de bugs
+- 🗑️ **Suppressions** : Fonctionnalités supprimées
+- 🔄 **Changements** : Modifications importantes
+- 📚 **Documentation** : Mises à jour de documentation

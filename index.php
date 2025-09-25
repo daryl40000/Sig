@@ -216,6 +216,137 @@ if ($total_objectif > 0) {
 print '</table>';
 print '</div>';
 
+// SECTION 2: Tableau de suivi des marges réalisées
+print '<br/>';
+print load_fiche_titre('💰 Tableau de bord - Suivi Marges Réalisées', '', 'fa-chart-line');
+
+// Récupérer les marges sauvegardées pour les objectifs
+$config_key_margins = 'SIG_MARGIN_OBJECTIVES_'.$year;
+$margin_objectives_json = getDolGlobalString($config_key_margins);
+$margin_objectives = array();
+if (!empty($margin_objectives_json)) {
+    $margin_objectives = json_decode($margin_objectives_json, true);
+    if (!is_array($margin_objectives)) $margin_objectives = array();
+}
+
+// Gestion de la sauvegarde des objectifs de marge
+if (GETPOST('action') == 'save_margin_objectives') {
+    $margin_objectives = array();
+    for ($m = 1; $m <= 12; $m++) {
+        $margin_obj_value = GETPOSTFLOAT('margin_objective_'.$m);
+        if ($margin_obj_value > 0) {
+            $margin_objectives[$m] = $margin_obj_value;
+        }
+    }
+    
+    // Sauvegarder en JSON dans la configuration
+    $config_key_margins = 'SIG_MARGIN_OBJECTIVES_'.$year;
+    $margin_objectives_json = json_encode($margin_objectives);
+    dolibarr_set_const($db, $config_key_margins, $margin_objectives_json, 'chaine', 0, '', $conf->entity);
+    
+    setEventMessages("Objectifs de marge sauvegardés pour l'année ".$year, null, 'mesgs');
+}
+
+print '<div class="div-table-responsive">';
+print '<table class="noborder" width="100%">';
+print '<tr class="liste_titre">';
+print '<th style="text-align:left; width: 150px;">Mois</th>';
+for ($m = 1; $m <= 12; $m++) {
+    print '<th style="text-align:center">'.dol_print_date(dol_mktime(12, 0, 0, $m, 1, $year), '%b').'</th>';
+}
+print '<th style="text-align:right; width: 120px;">Total</th>';
+print '</tr>';
+
+// Ligne Marge Réalisée
+print '<tr>';
+print '<td style="font-weight: bold; color: #2E7D32; background-color: #e8f5e8;">Marge Réalisée</td>';
+$total_marge_realise = 0;
+$monthly_marge_realise = array();
+for ($m = 1; $m <= 12; $m++) {
+    $marge_mois = sig_get_margin_for_month($db, $year, $m);
+    $total_marge_realise += $marge_mois;
+    $monthly_marge_realise[$m] = $marge_mois;
+    
+    $cell_style = $marge_mois > 0 ? 'background-color: #f0f8f0;' : 'background-color: #fafafa;';
+    print '<td style="text-align:right; padding:8px; '.$cell_style.'">'.price($marge_mois).'</td>';
+}
+print '<td style="text-align:right; padding:8px; font-weight: bold; background-color: #c8e6c9; color: #1B5E20;">'.price($total_marge_realise).'</td>';
+print '</tr>';
+
+// Ligne Objectifs de marge (formulaire)
+print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?year='.$year.'">';
+print '<input type="hidden" name="action" value="save_margin_objectives">';
+print '<tr>';
+print '<td style="font-weight: bold; color: #1565C0; background-color: #e3f2fd;">Objectif Marge</td>';
+$total_objectif_marge = 0;
+for ($m = 1; $m <= 12; $m++) {
+    $objectif_marge_mois = isset($margin_objectives[$m]) ? $margin_objectives[$m] : 0;
+    $total_objectif_marge += $objectif_marge_mois;
+    
+    print '<td style="text-align:center; padding:4px; background-color: #f0f4ff;">';
+    print '<input type="number" name="margin_objective_'.$m.'" value="'.($objectif_marge_mois > 0 ? $objectif_marge_mois : '').'" ';
+    print 'style="width: 80px; text-align: right; border: 1px solid #ddd; padding: 2px;" step="0.01" min="0">';
+    print '</td>';
+}
+print '<td style="text-align:right; padding:8px; font-weight: bold; background-color: #bbdefb; color: #0D47A1;">'.price($total_objectif_marge).'</td>';
+print '</tr>';
+
+// Bouton de sauvegarde
+print '<tr>';
+print '<td colspan="14" style="text-align: center; padding: 10px; background-color: #f8f8f8;">';
+print '<input type="submit" class="button" value="💾 Sauvegarder les objectifs de marge">';
+print '</td>';
+print '</tr>';
+print '</form>';
+
+// Ligne Écart (Réalisé - Objectif)
+print '<tr style="border-top: 2px solid #333;">';
+print '<td style="font-weight: bold; color: #333; background-color: #fff3e0;">Écart (Réalisé - Objectif)</td>';
+$total_ecart_marge = 0;
+for ($m = 1; $m <= 12; $m++) {
+    $marge_mois = $monthly_marge_realise[$m];
+    $objectif_marge_mois = isset($margin_objectives[$m]) ? $margin_objectives[$m] : 0;
+    
+    $ecart_marge = $marge_mois - $objectif_marge_mois;
+    $total_ecart_marge += $ecart_marge;
+    
+    $color = $ecart_marge >= 0 ? '#2E7D32' : '#C62828';
+    $bg_color = $ecart_marge >= 0 ? '#f0f8f0' : '#ffebee';
+    
+    print '<td style="text-align:right; padding:8px; color: '.$color.'; font-weight: bold; background-color: '.$bg_color.';">'.price($ecart_marge).'</td>';
+}
+
+$color_total = $total_ecart_marge >= 0 ? '#1B5E20' : '#B71C1C';
+$bg_color_total = $total_ecart_marge >= 0 ? '#c8e6c9' : '#ffcdd2';
+print '<td style="text-align:right; padding:8px; font-weight: bold; color: '.$color_total.'; background-color: '.$bg_color_total.';">'.price($total_ecart_marge).'</td>';
+print '</tr>';
+
+// Ligne Taux de réalisation (en %)
+if ($total_objectif_marge > 0) {
+    print '<tr style="background-color: #fafafa; border-top: 1px solid #ddd;">';
+    print '<td style="font-weight: bold; color: #666; font-style: italic;">Taux de réalisation</td>';
+    for ($m = 1; $m <= 12; $m++) {
+        $marge_mois = $monthly_marge_realise[$m];
+        $objectif_marge_mois = isset($margin_objectives[$m]) ? $margin_objectives[$m] : 0;
+        
+        if ($objectif_marge_mois > 0) {
+            $taux = ($marge_mois / $objectif_marge_mois) * 100;
+            $color = $taux >= 100 ? '#2E7D32' : ($taux >= 80 ? '#F57C00' : '#C62828');
+            print '<td style="text-align:right; padding:8px; color: '.$color.'; font-weight: bold; font-style: italic;">'.number_format($taux, 0).'%</td>';
+        } else {
+            print '<td style="text-align:center; padding:8px; color: #999; font-style: italic;">-</td>';
+        }
+    }
+    
+    $taux_total = ($total_marge_realise / $total_objectif_marge) * 100;
+    $color_total = $taux_total >= 100 ? '#1B5E20' : ($taux_total >= 80 ? '#E65100' : '#B71C1C');
+    print '<td style="text-align:right; padding:8px; font-weight: bold; color: '.$color_total.'; font-style: italic; font-size: 14px;">'.number_format($taux_total, 1).'%</td>';
+    print '</tr>';
+}
+
+print '</table>';
+print '</div>';
+
 llxFooter();
 $db->close();
 
@@ -233,7 +364,7 @@ function sig_get_turnover_for_month(DoliDB $db, int $year, int $month): float
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
 	$sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
 	$sql .= ' AND f.fk_statut IN (1,2)';
-	$sql .= ' AND f.type IN (0, 1)';
+	$sql .= ' AND f.type IN (0, 1, 2)';
 	$sql .= " AND f.datef >= '".$db->escape($date_start)."'";
 	$sql .= " AND f.datef <= '".$db->escape($date_end)."'";
 
@@ -245,4 +376,25 @@ function sig_get_turnover_for_month(DoliDB $db, int $year, int $month): float
 		$db->free($resql);
 	}
 	return (float) $total;
+}
+
+/**
+ * Retourne la marge HT totale du mois calculée à partir du CA réalisé et du taux de marge configuré.
+ */
+function sig_get_margin_for_month(DoliDB $db, int $year, int $month): float
+{
+	global $conf;
+	
+	// Récupérer le taux de marge configuré dans le module SIG
+	$margin_rate = getDolGlobalString('SIG_MARGIN_RATE');
+	if (empty($margin_rate)) $margin_rate = 20; // Valeur par défaut 20%
+	$margin_rate = (float) $margin_rate / 100; // Convertir en décimal (20% = 0.20)
+	
+	// Récupérer le CA réalisé du mois
+	$ca_realise = sig_get_turnover_for_month($db, $year, $month);
+	
+	// Calculer la marge : CA réalisé × taux de marge
+	$marge_calculee = $ca_realise * $margin_rate;
+	
+	return (float) $marge_calculee;
 } 

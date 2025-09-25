@@ -57,7 +57,7 @@ print '<div class="info-box" style="background: #e8f5e8; border: 1px solid #4CAF
 print '<div style="text-align: center;">';
 print '<h2 style="margin: 0; color: #2E7D32;">CA Réalisé '.$year.'</h2>';
 print '<div style="font-size: 24px; font-weight: bold; color: #1B5E20; margin-top: 10px;">'.price($total_year_ca).'</div>';
-print '<div style="font-size: 14px; color: #666; margin-top: 5px;">Factures validées et payées</div>';
+print '<div style="font-size: 14px; color: #666; margin-top: 5px;">Factures, avoirs et remplacements validés</div>';
 print '</div>';
 print '</div>';
 
@@ -372,7 +372,7 @@ function sig_get_total_turnover_for_year(DoliDB $db, int $year): float
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
 	$sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
 	$sql .= ' AND f.fk_statut IN (1,2)'; // Seulement les factures Validées (statut 1) et Payées (statut 2)
-	$sql .= ' AND f.type IN (0, 1)'; // Factures standard (0) et avoirs (1) - exclut les remplacements (2)
+	$sql .= ' AND f.type IN (0, 1, 2)'; // Factures standard (0), avoirs (1) et factures de remplacement (2)
 	$sql .= " AND f.datef BETWEEN '".$db->idate($firstday_timestamp)."' AND '".$db->idate($lastday_timestamp)."'";
 
 	$total = 0.0;
@@ -461,7 +461,7 @@ function sig_get_turnover_for_month(DoliDB $db, int $year, int $month): float
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
 	$sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
 	$sql .= ' AND f.fk_statut IN (1,2)'; // Seulement les factures Validées (statut 1) et Payées (statut 2)
-	$sql .= ' AND f.type IN (0, 1)'; // Factures standard (0) et avoirs (1) - exclut les remplacements (2)
+	$sql .= ' AND f.type IN (0, 1, 2)'; // Factures standard (0), avoirs (1) et factures de remplacement (2)
 	$sql .= " AND f.datef >= '".$db->escape($date_start)."'";
 	$sql .= " AND f.datef <= '".$db->escape($date_end)."'";
 

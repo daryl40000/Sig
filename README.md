@@ -1,12 +1,33 @@
-# Module SIG - Pilotage de trésorerie et SIG (Version 0.8)
+# 📊 Module SIG - Pilotage Financier pour Dolibarr
 
-## 📋 Description
+**Version 0.81** - Module de pilotage financier complet pour Dolibarr ERP/CRM
 
-Le module SIG (Solde Intermédiaire de Gestion) est un module Dolibarr complet qui offre un **cockpit de pilotage financier intégré**. Il combine un tableau de bord avec suivi d'objectifs, l'analyse du chiffre d'affaires, la gestion prévisionnelle de trésorerie avec projections d'incertitude, et l'analyse complète des **Soldes Intermédiaires de Gestion** pour une vision 360° de la performance d'entreprise.
+## 🎯 Description
 
-## 🎯 Fonctionnalités principales
+Le module SIG (Soldes Intermédiaires de Gestion) est un outil de pilotage financier avancé qui vous permet de :
 
-### 🚀 **Nouveautés Version 0.8**
+- 📈 **Suivre votre chiffre d'affaires** réalisé et prévu avec objectifs mensuels
+- 💰 **Analyser vos marges** avec un système simplifié et fiable  
+- 🏦 **Prévoir votre trésorerie** sur 12 mois avec différents scénarios
+- 📊 **Calculer vos SIG** (Soldes Intermédiaires de Gestion) automatiquement
+
+## 🆕 Nouveautés Version 0.81
+
+### **🔄 Refonte Complète du Système de Marges**
+- **Calcul simplifié** : Marge = CA Réalisé × Taux de Marge Configuré
+- **Indépendance totale** : Plus de dépendance au module Margin natif
+- **Performance optimisée** : Calculs plus rapides et fiables
+- **Interface épurée** : Suppression des éléments de diagnostic complexes
+
+### **📊 Avantages de la Nouvelle Approche**
+- ✅ **Fiabilité** : Basé sur les données de CA validées
+- ✅ **Simplicité** : Un seul paramètre à configurer (taux de marge)
+- ✅ **Cohérence** : Même logique que les calculs de CA
+- ✅ **Maintenance** : Moins de complexité technique
+
+## ✨ Fonctionnalités Principales
+
+### 📊 **1. Tableau de Bord Intégré**
 
 #### 🏠 **Tableau de bord avec suivi d'objectifs**
 - **Suivi mensuel** : CA réalisé vs objectifs avec écarts automatiques

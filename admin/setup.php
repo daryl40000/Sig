@@ -22,54 +22,48 @@ $action = GETPOST('action', 'aZ09');
  * Actions
  */
 
-if ($action == 'setvalue' && $user->admin) {
+// Action pour sauvegarder la configuration générale
+if ($action == 'save_general' && $user->admin) {
     $db->begin();
     
     $account_id = GETPOSTINT('SIG_BANK_ACCOUNT');
     $margin_rate = GETPOST('SIG_MARGIN_RATE', 'alphanohtml');
     $payment_delay = GETPOSTINT('SIG_PAYMENT_DELAY');
     
-    // Gestion de la case à cocher pour inclure les factures fournisseurs
-    if (GETPOST('SIG_INCLUDE_SUPPLIER_INVOICES', 'int')) {
-        $include_supplier_invoices = 1;
+    $result1 = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
+    $result2 = dolibarr_set_const($db, 'SIG_MARGIN_RATE', $margin_rate, 'chaine', 0, '', $conf->entity);
+    $result3 = dolibarr_set_const($db, 'SIG_PAYMENT_DELAY', $payment_delay, 'chaine', 0, '', $conf->entity);
+    
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0) {
+        $db->commit();
+        setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     } else {
-        $include_supplier_invoices = 0;
+        $db->rollback();
+        setEventMessages($langs->trans("Error"), null, 'errors');
     }
+}
+
+// Action pour sauvegarder la configuration de trésorerie
+if ($action == 'save_treasury' && $user->admin) {
+    $db->begin();
+    
+    // Gestion de la case à cocher pour inclure les factures fournisseurs
+    $include_supplier_invoices = GETPOST('SIG_INCLUDE_SUPPLIER_INVOICES', 'int') ? 1 : 0;
     
     // Gestion de la case à cocher pour inclure les charges sociales
-    if (GETPOST('SIG_INCLUDE_SOCIAL_CHARGES', 'int')) {
-        $include_social_charges = 1;
-    } else {
-        $include_social_charges = 0;
-    }
+    $include_social_charges = GETPOST('SIG_INCLUDE_SOCIAL_CHARGES', 'int') ? 1 : 0;
     
     // Gestion de la case à cocher pour inclure les devis signés
-    if (GETPOST('SIG_INCLUDE_SIGNED_QUOTES', 'int')) {
-        $include_signed_quotes = 1;
-    } else {
-        $include_signed_quotes = 0;
-    }
+    $include_signed_quotes = GETPOST('SIG_INCLUDE_SIGNED_QUOTES', 'int') ? 1 : 0;
     
     // Gestion de la case à cocher pour inclure les factures client impayées
-    if (GETPOST('SIG_INCLUDE_CUSTOMER_INVOICES', 'int')) {
-        $include_customer_invoices = 1;
-    } else {
-        $include_customer_invoices = 0;
-    }
+    $include_customer_invoices = GETPOST('SIG_INCLUDE_CUSTOMER_INVOICES', 'int') ? 1 : 0;
     
     // Gestion de la case à cocher pour inclure les salaires impayés
-    if (GETPOST('SIG_INCLUDE_UNPAID_SALARIES', 'int')) {
-        $include_unpaid_salaries = 1;
-    } else {
-        $include_unpaid_salaries = 0;
-    }
+    $include_unpaid_salaries = GETPOST('SIG_INCLUDE_UNPAID_SALARIES', 'int') ? 1 : 0;
     
     // Gestion de la case à cocher pour inclure les factures modèle client
-    if (GETPOST('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES', 'int')) {
-        $include_customer_template_invoices = 1;
-    } else {
-        $include_customer_template_invoices = 0;
-    }
+    $include_customer_template_invoices = GETPOST('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES', 'int') ? 1 : 0;
     
     // Gestion de la valeur d'incertitude pour les projections
     $projection_uncertainty = GETPOSTINT('SIG_PROJECTION_UNCERTAINTY');
@@ -77,33 +71,42 @@ if ($action == 'setvalue' && $user->admin) {
         $projection_uncertainty = 1000; // Valeur par défaut
     }
     
+    $result1 = dolibarr_set_const($db, 'SIG_INCLUDE_SUPPLIER_INVOICES', $include_supplier_invoices, 'yesno', 0, '', $conf->entity);
+    $result2 = dolibarr_set_const($db, 'SIG_INCLUDE_SOCIAL_CHARGES', $include_social_charges, 'yesno', 0, '', $conf->entity);
+    $result3 = dolibarr_set_const($db, 'SIG_INCLUDE_SIGNED_QUOTES', $include_signed_quotes, 'yesno', 0, '', $conf->entity);
+    $result4 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_INVOICES', $include_customer_invoices, 'yesno', 0, '', $conf->entity);
+    $result5 = dolibarr_set_const($db, 'SIG_INCLUDE_UNPAID_SALARIES', $include_unpaid_salaries, 'yesno', 0, '', $conf->entity);
+    $result6 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES', $include_customer_template_invoices, 'yesno', 0, '', $conf->entity);
+    $result7 = dolibarr_set_const($db, 'SIG_PROJECTION_UNCERTAINTY', $projection_uncertainty, 'chaine', 0, '', $conf->entity);
+    
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0) {
+        $db->commit();
+        setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+    } else {
+        $db->rollback();
+        setEventMessages($langs->trans("Error"), null, 'errors');
+    }
+}
+
+// Action pour sauvegarder la configuration SIG
+if ($action == 'save_sig' && $user->admin) {
+    $db->begin();
+    
+    // Gestion des comptes SIG pour achats consommés
+    $sig_account_start = GETPOST('SIG_ACCOUNT_START', 'alphanohtml');
+    $sig_account_end = GETPOST('SIG_ACCOUNT_END', 'alphanohtml');
+    
     // Gestion du taux de charges sociales
     $social_charges_rate = GETPOST('SIG_SOCIAL_CHARGES_RATE', 'alphanohtml');
     if (empty($social_charges_rate) || $social_charges_rate < 0) {
         $social_charges_rate = 55; // Valeur par défaut 55%
     }
     
-    // Gestion des comptes SIG pour achats consommés
-    $sig_account_start = GETPOST('SIG_ACCOUNT_START', 'alphanohtml');
-    $sig_account_end = GETPOST('SIG_ACCOUNT_END', 'alphanohtml');
+    $result1 = dolibarr_set_const($db, 'SIG_ACCOUNT_START', $sig_account_start, 'chaine', 0, '', $conf->entity);
+    $result2 = dolibarr_set_const($db, 'SIG_ACCOUNT_END', $sig_account_end, 'chaine', 0, '', $conf->entity);
+    $result3 = dolibarr_set_const($db, 'SIG_SOCIAL_CHARGES_RATE', $social_charges_rate, 'chaine', 0, '', $conf->entity);
     
-
-    
-    $result1 = dolibarr_set_const($db, 'SIG_BANK_ACCOUNT', $account_id, 'chaine', 0, '', $conf->entity);
-    $result2 = dolibarr_set_const($db, 'SIG_MARGIN_RATE', $margin_rate, 'chaine', 0, '', $conf->entity);
-    $result3 = dolibarr_set_const($db, 'SIG_PAYMENT_DELAY', $payment_delay, 'chaine', 0, '', $conf->entity);
-    $result4 = dolibarr_set_const($db, 'SIG_INCLUDE_SUPPLIER_INVOICES', $include_supplier_invoices, 'yesno', 0, '', $conf->entity);
-    $result5 = dolibarr_set_const($db, 'SIG_INCLUDE_SOCIAL_CHARGES', $include_social_charges, 'yesno', 0, '', $conf->entity);
-    $result6 = dolibarr_set_const($db, 'SIG_INCLUDE_SIGNED_QUOTES', $include_signed_quotes, 'yesno', 0, '', $conf->entity);
-    $result7 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_INVOICES', $include_customer_invoices, 'yesno', 0, '', $conf->entity);
-    $result8 = dolibarr_set_const($db, 'SIG_INCLUDE_UNPAID_SALARIES', $include_unpaid_salaries, 'yesno', 0, '', $conf->entity);
-    $result9 = dolibarr_set_const($db, 'SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES', $include_customer_template_invoices, 'yesno', 0, '', $conf->entity);
-    $result10 = dolibarr_set_const($db, 'SIG_PROJECTION_UNCERTAINTY', $projection_uncertainty, 'chaine', 0, '', $conf->entity);
-    $result11 = dolibarr_set_const($db, 'SIG_ACCOUNT_START', $sig_account_start, 'chaine', 0, '', $conf->entity);
-    $result12 = dolibarr_set_const($db, 'SIG_ACCOUNT_END', $sig_account_end, 'chaine', 0, '', $conf->entity);
-    $result13 = dolibarr_set_const($db, 'SIG_SOCIAL_CHARGES_RATE', $social_charges_rate, 'chaine', 0, '', $conf->entity);
-    
-    if ($result1 > 0 && $result2 > 0 && $result3 > 0 && $result4 > 0 && $result5 > 0 && $result6 > 0 && $result7 > 0 && $result8 > 0 && $result9 > 0 && $result10 > 0 && $result11 > 0 && $result12 > 0 && $result13 > 0) {
+    if ($result1 > 0 && $result2 > 0 && $result3 > 0) {
         $db->commit();
         setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
     } else {
@@ -142,6 +145,48 @@ if ($action == 'save_manual_ca' && $user->admin) {
     }
 }
 
+// Action pour recalculer les marges des factures
+if ($action == 'recalculate_margins' && $user->admin && !empty($conf->margin->enabled)) {
+    require_once DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php';
+    
+    $db->begin();
+    $nb_updated = 0;
+    $nb_errors = 0;
+    
+    // Récupérer toutes les factures validées et payées
+    $sql = 'SELECT f.rowid FROM '.MAIN_DB_PREFIX.'facture as f';
+    $sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
+    $sql .= ' AND f.fk_statut IN (1,2)'; // Validées et payées
+    
+    $resql = $db->query($sql);
+    if ($resql) {
+        while ($obj = $db->fetch_object($resql)) {
+            $invoice = new Facture($db);
+            if ($invoice->fetch($obj->rowid) > 0) {
+                // Recalculer les marges
+                $result = $invoice->update_price(1); // 1 = recalculate margins
+                if ($result > 0) {
+                    $nb_updated++;
+                } else {
+                    $nb_errors++;
+                }
+            }
+        }
+        $db->free($resql);
+        
+        if ($nb_errors == 0) {
+            $db->commit();
+            setEventMessages("Marges recalculées avec succès pour $nb_updated facture(s).", null, 'mesgs');
+        } else {
+            $db->rollback();
+            setEventMessages("Erreur lors du recalcul des marges : $nb_errors erreur(s) sur ".($nb_updated + $nb_errors)." facture(s).", null, 'errors');
+        }
+    } else {
+        $db->rollback();
+        setEventMessages("Erreur lors de la récupération des factures.", null, 'errors');
+    }
+}
+
 /*
  * View
  */
@@ -156,7 +201,7 @@ print '<br>';
 // Configuration du compte bancaire
 print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
-print '<input type="hidden" name="action" value="setvalue">';
+print '<input type="hidden" name="action" value="save_general">';
 
 print '<table class="noborder" width="100%">';
 print '<tr class="liste_titre">';
@@ -239,9 +284,21 @@ print '</tr>';
 
 print '</table>';
 
+print '<br>';
+print '<div class="center">';
+print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
+print '</div>';
+
+print '</form>';
+
 // Section Trésorerie
 print '<br>';
 print '<h3>'.$langs->trans("SigTreasurySection").'</h3>';
+
+print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_treasury">';
+
 print '<table class="noborder" width="100%">';
 print '<tr class="liste_titre">';
 print '<td>'.$langs->trans("Parameter").'</td>';
@@ -372,7 +429,8 @@ print '<br>';
 print '<h3>'.$langs->trans("SigSIGSection").'</h3>';
 
 print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'">';
-print '<input type="hidden" name="action" value="setvalue">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_sig">';
 
 print '<table class="noborder" width="100%">';
 print '<tr class="liste_titre">';
@@ -553,7 +611,35 @@ $current_include_unpaid_salaries = getDolGlobalString('SIG_INCLUDE_UNPAID_SALARI
 $include_salaries_status = (!empty($current_include_unpaid_salaries) && $current_include_unpaid_salaries == '1') ? $langs->trans("Yes") : $langs->trans("No");
 print '<p><strong>'.$langs->trans("SigIncludeUnpaidSalaries").' :</strong> '.$include_salaries_status.'</p>';
 
-print '</div>';
+// Afficher la configuration de l'inclusion des factures modèle client
+$current_include_customer_template_invoices = getDolGlobalString('SIG_INCLUDE_CUSTOMER_TEMPLATE_INVOICES');
+$include_template_status = (!empty($current_include_customer_template_invoices) && $current_include_customer_template_invoices == '1') ? $langs->trans("Yes") : $langs->trans("No");
+print '<p><strong>'.$langs->trans("SigIncludeCustomerTemplateInvoices").' :</strong> '.$include_template_status.'</p>';
+
+// Section utilitaires pour les marges
+print '<br><div class="titre">'.$langs->trans("SigMarginUtilities").'</div>';
+print '<div class="info">'.$langs->trans("SigMarginUtilitiesDesc").'</div>';
+
+// Vérifier le statut du module margin
+$margin_enabled = !empty($conf->margin->enabled);
+if ($margin_enabled) {
+    print '<div style="background: #d4edda; border: 1px solid #28a745; border-radius: 5px; padding: 10px; margin: 10px 0;">';
+    print '<strong>✅ Module Margin activé</strong><br>';
+    print 'Le module Margin est activé et fonctionnel.';
+    print '</div>';
+    
+    // Bouton pour recalculer les marges
+    print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'" style="margin: 10px 0;">';
+    print '<input type="hidden" name="action" value="recalculate_margins">';
+    print '<input type="submit" class="button" value="🔄 Recalculer les marges des factures" onclick="return confirm(\'Êtes-vous sûr de vouloir recalculer toutes les marges ? Cette opération peut prendre du temps.\');">';
+    print '</form>';
+    
+} else {
+    print '<div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 10px; margin: 10px 0;">';
+    print '<strong>⚠️ Module Margin désactivé</strong><br>';
+    print 'Pour utiliser le suivi des marges dans le module SIG, activez le module "Marges" dans Configuration > Modules.';
+    print '</div>';
+}
 
 print '<br>';
 

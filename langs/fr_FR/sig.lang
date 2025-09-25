@@ -51,7 +51,22 @@ SigAccountStartHelp=Premier compte considéré comme "Achats consommés" (ex: 60
 SigAccountEnd=Compte de fin (Achats)
 SigAccountEndHelp=Dernier compte considéré comme "Achats consommés" (ex: 609). Les factures hors de cette plage seront considérées comme charges externes
 SigSocialChargesRate=Taux de charges sociales
-SigSocialChargesRateHelp=Pourcentage de charges sociales appliqué automatiquement aux salaires (défaut: 55%). Inclut cotisations patronales, URSSAF, retraite, etc.
+SigSocialChargesRateHelp=Taux de charges sociales à appliquer aux salaires pour estimer les charges (en %)
+SigGeneralSection=Configuration générale
+SigTreasuryConfigSection=Configuration de la trésorerie
+SigSIGConfigSection=Configuration des Soldes Intermédiaires de Gestion
+
+# Nouvelles traductions pour les marges
+SigMarginUtilities=Utilitaires Marges
+SigMarginUtilitiesDesc=Outils de diagnostic et de maintenance pour le suivi des marges
+SigRecalculateMargins=Recalculer les marges des factures
+SigRecalculateMarginsHelp=Recalcule les marges de toutes les factures validées et payées (utile après activation du module Margin)
+SigMarginModuleStatus=Statut du module Margin
+SigMarginModuleEnabled=Module Margin activé
+SigMarginModuleDisabled=Module Margin désactivé - Activez-le dans Configuration > Modules
+SigMarginDiagnostic=Diagnostic des marges
+SigMarginsRecalculated=Marges recalculées avec succès
+SigMarginsRecalculationError=Erreur lors du recalcul des marges
 
 # Menu
 Tableau de bord=Tableau de bord

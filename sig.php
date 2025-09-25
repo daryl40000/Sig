@@ -68,7 +68,7 @@ print '<tr class="oddeven">';
 print '<td><strong>Chiffre d\'affaires HT</strong></td>';
 print '<td style="text-align:right; font-weight: bold; color: #2E7D32;">'.price($ca_ht).'</td>';
 print '<td style="text-align:right;">100,0%</td>';
-print '<td>Ventes de biens et services (factures validées)</td>';
+print '<td>Ventes de biens et services (factures, avoirs et remplacements validés)</td>';
 print '</tr>';
 
 // Ligne 2: Achats consommés

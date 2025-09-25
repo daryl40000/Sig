@@ -24,12 +24,12 @@ function sig_calculate_sig_data(DoliDB $db, int $year): array
     
     $data = array();
     
-    // 1. Chiffre d'affaires HT (factures client validées)
+    // 1. Chiffre d'affaires HT (factures client validées + avoirs + factures de remplacement)
     $sql = 'SELECT SUM(f.total_ht) as total_ht';
     $sql .= ' FROM '.MAIN_DB_PREFIX.'facture as f';
     $sql .= ' WHERE f.entity IN ('.getEntity('invoice', 1).')';
     $sql .= ' AND f.fk_statut IN (1,2)'; // Validées et payées
-    $sql .= ' AND f.type IN (0)'; // Factures standard uniquement
+    $sql .= ' AND f.type IN (0, 1, 2)'; // Factures standard (0), avoirs (1) et factures de remplacement (2)
     $sql .= " AND f.datef BETWEEN '".$db->idate($firstday_timestamp)."' AND '".$db->idate($lastday_timestamp)."'";
     
     $resql = $db->query($sql);
